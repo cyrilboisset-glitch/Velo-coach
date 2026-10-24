@@ -1,0 +1,21 @@
+name: Tests du moteur
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  moteur:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: moteur
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart test
+      - run: dart run example/sortie_exemple.dart
