@@ -67,11 +67,17 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
   construire.
 - Signaler franchement les limites et les hypothèses.
 
+## Décisions de réglage (validées par Cyril)
+
+- Rappel en montée toutes les 5 min (plus une annonce si la cible bouge
+  de 10 W, et « lève le pied » en cas de surrégime).
+- Correction des cols de plus d'une heure activée (A = 0,12).
+- Réserve au sommet : « avec le GPX, c'est à toi » → gérée par le moteur
+  (cols enchaînés à moins de 10 min gérés ensemble, voir pacing.dart).
+- Étape 2 : rejouer une sortie Strava (via le connecteur Strava). Ne pas
+  mettre ses traces GPS dans le dépôt (données personnelles).
+
 ## Questions ouvertes (voir HYPOTHESES.md)
 
-- Rappel en montée : 5 min par défaut (2 min donnait plus de 20
-  notifications sur un col de 45 min).
-- Réserve à garder au sommet (0 % par défaut, formule pure).
-- Déclin pour les cols de plus d'une heure (désactivé par défaut).
 - Le BiNavi affiche-t-il les notifications d'une appli tierce ? Les
   accents ?

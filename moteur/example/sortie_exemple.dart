@@ -1,4 +1,5 @@
-// Exemple : une sortie inventée de 95 km avec deux cols, rejouée
+// Exemple : une sortie inventée de 95 km avec trois cols (dont deux
+// enchaînés), rejouée
 // seconde par seconde. Affiche les alertes que tu aurais reçues.
 //
 // Lancer : dart run example/sortie_exemple.dart
@@ -18,7 +19,9 @@ void main() {
     Troncon(11000, 6.5), // col 1 : 11 km à 6,5 %
     Troncon(14000, -5),
     Troncon(12000, 0),
-    Troncon(4000, 8), // col 2 : 4 km à 8 %
+    Troncon(2500, 8), // col 2 : 2,5 km à 8 %...
+    Troncon(600, 0), // ... 600 m de replat ...
+    Troncon(2000, 7), // ... col 3 : 2 km à 7 % (enchaîné avec le 2)
     Troncon(6000, -5),
     Troncon(18000, 0),
   ], capDeg: 0);
@@ -57,7 +60,12 @@ void main() {
     for (final a in coach.tick(
       Echantillon(t: t, puissanceW: p, distanceParcoursM: d),
     )) {
-      print('${hm(t)}  | ${km(d).padLeft(5)} | ${a.texte}');
+      final r =
+          coach.etat.reserveSommetPct ?? coach.etat.reserveSommetProchainePct;
+      final garde = a.type == TypeAlerte.montee && r != null && r >= 5
+          ? '   (garde ${r.round()} % au sommet)'
+          : '';
+      print('${hm(t)}  | ${km(d).padLeft(5)} | ${a.texte}$garde');
       switch (a.code) {
         case 'manger':
           coach.mangeAliment(cfg.manger.aliments[0]); // gel

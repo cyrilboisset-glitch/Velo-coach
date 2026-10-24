@@ -49,8 +49,8 @@ choix, `[PERSO]` ta valeur personnelle.
 | 10 | CP = FTP [CDC] | Proches en moyenne, mais l'écart varie selon les personnes | Test de puissance critique |
 | 11 | W' = 18 kJ [CDC] | +5 kJ = environ +3 W de cible sur un col de 30 min | Test de puissance critique |
 | 12 | Fatigue : −1 % de CP par 500 kJ au-delà de 1500 kJ, en continu, plafonnée à −20 % [CDC + CHOIX] | En réalité W' baisse aussi : non modélisé | Comparer tes cols en début et en fin de longue sortie (étape 2) |
-| 13 | La formule vide toute la réserve au sommet [CDC] | Ne pense pas au col suivant | Option « réserve au sommet » (0 % par défaut) |
-| 14 | Col de plus d'une heure : la formule donne presque la FTP [CDC] | **Trop dur** au-delà d'une heure | Option « déclin longue durée » (désactivée par défaut) |
+| 13 | Cols enchaînés (moins de 10 min entre le sommet et le pied suivant) : une seule puissance pour tous, réserve au sommet calculée pour arriver vide en haut du dernier, récupération entre les deux estimée à 60 % de FTP [CHOIX] | Simplification : pas une vraie optimisation. Au-delà de 10 min, chaque col vide sa réserve | Mode simulation sur tes parcours à bosses |
+| 14 | Col de plus d'une heure : CP retenue baissée de 0,12 × ln(durée / 1 h) [CHOIX validé] | −5 % à 1 h 30, −8 % à 2 h. Valeur estimée | Mode simulation sur tes longs cols |
 | 15 | Montée de moins de 3 min : le modèle CP/W' ne s'applique plus | Cible plafonnée à 130 % de FTP | Normal |
 | 16 | Modèle physique en vitesse stable : pas d'accélérations, pas d'abri d'un groupe, vent ramené à 60 % de sa valeur à 10 m, descente plafonnée à 60 km/h | Durées de montée un peu fausses par vent tournant ou en groupe | Mode simulation : temps estimé contre temps réel |
 | 17 | Heure d'arrivée au pied du col : à ta puissance moyenne des 10 dernières minutes | Alerte « mange avant le col » un peu tôt ou tard | Mode simulation |

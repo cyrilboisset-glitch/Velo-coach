@@ -17,7 +17,7 @@ l'app iGPSPORT) et à la voix.
 
 | Étape | Contenu | État |
 |---|---|---|
-| 1 | Moteur de calcul pur + tests | **Fait** (84 tests) |
+| 1 | Moteur de calcul pur + tests | **Fait** (88 tests) |
 | 2 | Mode simulation : rejouer un FIT + son GPX | À faire |
 | 3 | Connexion Bluetooth aux capteurs | À faire |
 | 4 | GPS, météo, import GPX, montées | À faire |

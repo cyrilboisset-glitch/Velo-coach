@@ -70,10 +70,13 @@ class EtatCoach {
     this.puissanceCibleW,
     this.tempsRestantMonteeS,
     this.ciblePlafonnee = false,
+    this.reserveSommetPct,
+    this.colsEnchaines = 0,
     this.prochaineMontee,
     this.distanceProchaineM,
     this.etaProchaineS,
     this.puissanceProchaineW,
+    this.reserveSommetProchainePct,
     this.dureeProchaineS,
   });
 
@@ -100,12 +103,18 @@ class EtatCoach {
   final double? tempsRestantMonteeS;
   final bool ciblePlafonnee;
 
+  /// Réserve prévue au sommet (% de W'), et nombre de cols suivants
+  /// gérés avec celui-ci (enchaînement).
+  final double? reserveSommetPct;
+  final int colsEnchaines;
+
   /// Prochaine montée. L'heure d'arrivée et la puissance prévue ne sont
   /// calculées que dans les 15 dernières minutes environ.
   final Montee? prochaineMontee;
   final double? distanceProchaineM;
   final double? etaProchaineS;
   final double? puissanceProchaineW;
+  final double? reserveSommetProchainePct;
   final double? dureeProchaineS;
 }
 
@@ -256,10 +265,13 @@ class Coach {
           ? null
           : math.max(0.0, cible.dureeS - (_t - _tCalcul)),
       ciblePlafonnee: cible?.plafonnee ?? false,
+      reserveSommetPct: cible == null ? null : _pct(cible.reserveSommetJ),
+      colsEnchaines: cible?.colsEnchaines ?? 0,
       prochaineMontee: pr,
       distanceProchaineM: pr == null || d == null ? null : pr.debutM - d,
       etaProchaineS: etaProchaineS,
       puissanceProchaineW: pp?.puissanceW,
+      reserveSommetProchainePct: pp == null ? null : _pct(pp.reserveSommetJ),
       dureeProchaineS: pp?.dureeS,
     );
   }
@@ -269,16 +281,62 @@ class Coach {
   _SuiviMontee _suivi(Montee m) =>
       _suivis.putIfAbsent(m.index, _SuiviMontee.new);
 
-  ResultatPacing _pacing(List<Segment> segments, ConditionsRoulage c) =>
-      calculerPacing(
-        segments: segments,
-        cpEffW: cpEffW,
-        wbalJ: wbal.wbalJ,
-        wPrimeJ: cfg.wbal.wPrimeJ,
-        ftpW: ftpW,
-        cfg: cfg.pacing,
-        conditions: c,
+  double _pct(double j) => 100 * j / cfg.wbal.wPrimeJ;
+
+  /// Pacing de la montée [m] depuis [depuisM], avec les cols qui la
+  /// suivent de près.
+  ResultatPacing _pacing(
+    Parcours parc,
+    Montee m,
+    double depuisM,
+    ConditionsRoulage c,
+  ) => calculerPacing(
+    segments: parc.segmentsEntre(depuisM, m.finM),
+    enchainement: _enchainement(parc, m, c),
+    cpEffW: cpEffW,
+    wbalJ: wbal.wbalJ,
+    wPrimeJ: cfg.wbal.wPrimeJ,
+    ftpW: ftpW,
+    cfg: cfg.pacing,
+    conditions: c,
+    modele: cfg.wbal.modele,
+  );
+
+  /// Cols qui commencent moins de [ConfigPacing.enchainementMaxS] après
+  /// le sommet du précédent.
+  List<ColEnchaine> _enchainement(
+    Parcours parc,
+    Montee m,
+    ConditionsRoulage c,
+  ) {
+    final cp = cfg.pacing;
+    final pRecup = cp.puissanceEntreColsPctFtp / 100 * ftpW;
+    final res = <ColEnchaine>[];
+    var precedent = m;
+    for (
+      var i = m.index + 1;
+      i < parc.montees.length && res.length < cp.enchainementMaxCols;
+      i++
+    ) {
+      final suivant = parc.montees[i];
+      final intervalle = parc.segmentsEntre(precedent.finM, suivant.debutM);
+      final t = dureeSegments(
+        intervalle,
+        pRecup,
+        c,
+        limiteS: cp.enchainementMaxS,
       );
+      if (t >= cp.enchainementMaxS) break;
+      res.add(
+        ColEnchaine(
+          intervalle: intervalle,
+          montee: parc.segmentsEntre(suivant.debutM, suivant.finM),
+        ),
+      );
+      precedent = suivant;
+    }
+    return res;
+  }
 
   /// Repère la montée en cours et la suivante ; recalcule cibles et
   /// heure d'arrivée toutes les 30 s (et dès qu'on change de montée).
@@ -303,7 +361,7 @@ class Coach {
     _prochainCalculT = _t + cfg.pacing.recalculS;
     _tCalcul = _t;
     final cond = ConditionsRoulage.depuis(cfg, meteo);
-    _cible = m == null ? null : _pacing(parc.segmentsEntre(d, m.finM), cond);
+    _cible = m == null ? null : _pacing(parc, m, d, cond);
 
     if (pr == null) {
       _etaCalculS = null;
@@ -323,7 +381,14 @@ class Coach {
     );
     if (eta < horizon) {
       _etaCalculS = eta;
-      _pacingProchaine = _pacing(parc.segmentsEntre(pr.debutM, pr.finM), cond);
+      // Col suivant déjà géré avec la montée en cours (enchaînement) :
+      // pas d'annonce séparée, il sera annoncé à son pied avec la
+      // réserve réelle.
+      final enchaine =
+          m != null &&
+          pr.index == m.index + 1 &&
+          (_cible?.colsEnchaines ?? 0) > 0;
+      _pacingProchaine = enchaine ? null : _pacing(parc, pr, pr.debutM, cond);
     } else {
       _etaCalculS = null;
       _pacingProchaine = null;
@@ -353,6 +418,7 @@ class Coach {
               longueurM: m.longueurM,
               penteMoyenne: m.penteMoyenne,
               puissanceW: p,
+              reserveSommetPct: _pct(cible.reserveSommetJ),
             ),
             siEmise: noter,
           ),
@@ -403,6 +469,7 @@ class Coach {
               longueurM: pr.longueurM,
               penteMoyenne: pr.penteMoyenne,
               puissanceW: pp.puissanceW,
+              reserveSommetPct: _pct(pp.reserveSommetJ),
             ),
             siEmise: () {
               s.annonceFaite = true;

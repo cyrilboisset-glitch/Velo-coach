@@ -11,17 +11,23 @@ String _km(double m) => _dec1(m / 1000);
 String _ent(double x) => x.round().toString();
 
 abstract final class Messages {
+  /// [reserveSommetPct] : réserve prévue au sommet ; citée à la voix si
+  /// un col suivant oblige à en garder (5 % ou plus).
   static Message annonceMontee({
     required double longueurM,
     required double penteMoyenne,
     required double puissanceW,
+    double reserveSommetPct = 0,
   }) {
     final km = _km(longueurM);
     final pct = _dec1(100 * penteMoyenne);
     final w = _ent(puissanceW);
+    final garde = reserveSommetPct >= 5
+        ? ' Garde ${_ent(reserveSommetPct)} pour cent pour le col suivant.'
+        : '';
     return Message(
       'Montée $km km à $pct % : tiens $w W',
-      'Montée de $km kilomètres à $pct pour cent. Tiens $w watts.',
+      'Montée de $km kilomètres à $pct pour cent. Tiens $w watts.$garde',
     );
   }
 

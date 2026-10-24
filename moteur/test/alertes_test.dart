@@ -135,6 +135,23 @@ void main() {
       expect(Messages.bois(retardMl: 160).court, 'Bois : retard 160 ml');
     });
 
+    test('la voix rappelle la réserve à garder pour le col suivant', () {
+      final avec = Messages.annonceMontee(
+        longueurM: 3000,
+        penteMoyenne: 0.07,
+        puissanceW: 258,
+        reserveSommetPct: 34.6,
+      );
+      expect(avec.vocal, endsWith('Garde 35 pour cent pour le col suivant.'));
+      final sans = Messages.annonceMontee(
+        longueurM: 3000,
+        penteMoyenne: 0.07,
+        puissanceW: 262,
+        reserveSommetPct: 1,
+      );
+      expect(sans.vocal, isNot(contains('Garde')));
+    });
+
     test('sansAccents', () {
       expect(
         sansAccents('Élève à l’été, ça côtoie l’œuf'),

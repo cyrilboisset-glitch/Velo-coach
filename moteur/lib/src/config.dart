@@ -448,6 +448,10 @@ class ConfigMontees {
 //
 // Puissance cible P telle que P = CP_eff + W'bal disponible / durée(P),
 // la durée venant du modèle physique. Résolu par dichotomie.
+//
+// Cols enchaînés : si le col suivant commence peu après le sommet, les
+// cols sont gérés ensemble, à une seule puissance, en comptant la
+// récupération entre eux. La réserve au sommet du premier col en découle.
 
 class ConfigPacing {
   const ConfigPacing({
@@ -455,7 +459,10 @@ class ConfigPacing {
     this.puissanceMaxPctFtp = 130,
     this.puissanceMinPctFtp = 50,
     this.reserveFinMonteePct = 0,
-    this.declinLongueDureeParLn = 0,
+    this.enchainementMaxS = 600,
+    this.enchainementMaxCols = 3,
+    this.puissanceEntreColsPctFtp = 60,
+    this.declinLongueDureeParLn = 0.12,
     this.dureeRefDeclinS = 3600,
     this.lissageApprocheS = 600,
     this.puissanceApprocheMinPctFtp = 40,
@@ -477,16 +484,32 @@ class ConfigPacing {
   final double puissanceMaxPctFtp;
   final double puissanceMinPctFtp;
 
-  /// [CDC] La formule vide toute la réserve (0 % au sommet).
-  /// [CHOIX] possible : garder 10 à 20 % pour la suite.
+  /// [CDC] Réserve laissée en haut du DERNIER col d'un enchaînement
+  /// (0 = tout vider, comme la formule). Les réserves en haut des cols
+  /// intermédiaires sont calculées par le moteur.
   final double reserveFinMonteePct;
 
-  /// [CDC] 0 = formule pure P = CP_eff + W'bal / durée.
-  /// ⚠ HYPOTHÈSE : pour une montée de plus d'une heure, la formule pure
-  /// donne presque la FTP, ce qui est trop dur. Avec une valeur A > 0,
-  /// la CP retenue baisse de A × ln(durée / 1 h) au-delà d'une heure
+  /// [CHOIX] Deux cols sont gérés ensemble si le second commence moins
+  /// de 10 min après le sommet du premier (à la puissance ci-dessous).
+  /// Au-delà, la réserve a le temps de se recharger presque entièrement :
+  /// chaque col est géré seul.
+  /// ⚠ HYPOTHÈSE : une seule puissance pour tout l'enchaînement est une
+  /// simplification (pas une optimisation complète).
+  final double enchainementMaxS;
+  final int enchainementMaxCols;
+
+  /// [CHOIX] Puissance supposée entre deux cols enchaînés, pour estimer
+  /// le temps et la récupération. Prudent : en descente on pédale moins,
+  /// donc on récupère plutôt mieux que prévu.
+  final double puissanceEntreColsPctFtp;
+
+  /// [CHOIX validé par Cyril] Correction des cols de plus d'une heure.
+  /// La formule pure donne presque la FTP pendant 1 h 30, ce qui est trop
+  /// dur. La CP retenue baisse de A × ln(durée / 1 h) au-delà d'une heure
   /// (forme du modèle « omni-domaine » de Puchowicz et al., 2020,
-  /// J Sports Sci). Exemple A = 0,12 : 2 h → −8 % ; 1 h 30 → −5 %.
+  /// J Sports Sci). A = 0,12 : 1 h 30 → −5 % ; 2 h → −8 %. 0 = formule pure.
+  /// ⚠ HYPOTHÈSE : la valeur 0,12 est une estimation, à vérifier en
+  /// simulation sur tes longs cols.
   final double declinLongueDureeParLn;
   final double dureeRefDeclinS;
 

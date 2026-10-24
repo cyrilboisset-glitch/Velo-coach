@@ -108,14 +108,15 @@ void main() {
         Troncon(25000, 7),
         Troncon(1000, 0),
       ]);
-      final pur = _pacing(_montee(long));
+      final pur = _pacing(
+        _montee(long),
+        cfg: const ConfigPacing(declinLongueDureeParLn: 0),
+      );
       expect(pur.dureeS, greaterThan(1.5 * 3600));
       // Formule pure : quasiment la FTP pendant plus d'une heure et demie.
       expect(pur.puissanceW, closeTo(250 + 18000 / pur.dureeS, 0.2));
-      final declin = _pacing(
-        _montee(long),
-        cfg: const ConfigPacing(declinLongueDureeParLn: 0.12),
-      );
+      // Réglage par défaut : correction activée (A = 0,12).
+      final declin = _pacing(_montee(long));
       final t = declin.dureeS;
       expect(
         declin.puissanceW,
@@ -162,5 +163,113 @@ void main() {
         }
       });
     }
+  });
+
+  group('Cols enchaînés : réserve au sommet décidée par le parcours', () {
+    // Deux cols de 3 km à 7 %, séparés par 800 m de plat.
+    final deux = Parcours.depuisProfil(const [
+      Troncon(2000, 0),
+      Troncon(3000, 7),
+      Troncon(800, 0),
+      Troncon(3000, 7),
+      Troncon(2000, 0),
+    ]);
+
+    test('gérés ensemble : cible plus basse, réserve gardée au sommet', () {
+      expect(deux.montees, hasLength(2));
+      final m0 = deux.montees[0];
+      final m1 = deux.montees[1];
+      final seul = _pacing(deux.segmentsEntre(m0.debutM, m0.finM));
+      final ensemble = calculerPacing(
+        segments: deux.segmentsEntre(m0.debutM, m0.finM),
+        enchainement: [
+          ColEnchaine(
+            intervalle: deux.segmentsEntre(m0.finM, m1.debutM),
+            montee: deux.segmentsEntre(m1.debutM, m1.finM),
+          ),
+        ],
+        cpEffW: 250,
+        wbalJ: 18000,
+        wPrimeJ: 18000,
+        ftpW: 250,
+        cfg: const ConfigPacing(),
+        conditions: _cond,
+      );
+      expect(seul.reserveSommetJ, closeTo(0, 50));
+      expect(ensemble.colsEnchaines, 1);
+      expect(ensemble.puissanceW, lessThan(seul.puissanceW - 5));
+      expect(ensemble.puissanceW, greaterThan(250));
+      expect(ensemble.reserveSommetJ, greaterThan(0.25 * 18000));
+    });
+
+    test(
+      'en suivant la cible : réserve gardée en haut du 1er, vide en haut du 2e',
+      () {
+        final coach = Coach(const Config(), parcours: deux);
+        final m0 = deux.montees[0];
+        final m1 = deux.montees[1];
+        final cibles0 = <double>[];
+        final cibles1 = <double>[];
+        double? prevue;
+        double? auSommet0;
+        double? auSommet1;
+        simuler(
+          coach,
+          dureeMaxS: 3 * 3600,
+          puissance: (c, t, d) {
+            final cible = c.etat.puissanceCibleW;
+            return c.parcours!.monteeA(d) != null && cible != null
+                ? cible
+                : 150;
+          },
+          chaqueSeconde: (c, t, d, a) {
+            final e = c.etat;
+            if (e.puissanceCibleW != null && m0.contient(d)) {
+              cibles0.add(e.puissanceCibleW!);
+              prevue ??= e.reserveSommetPct;
+            }
+            if (e.puissanceCibleW != null && m1.contient(d)) {
+              cibles1.add(e.puissanceCibleW!);
+            }
+            if (d >= m0.finM && auSommet0 == null) {
+              auSommet0 = c.wbal.pourcentage;
+            }
+            if (d >= m1.finM && auSommet1 == null) {
+              auSommet1 = c.wbal.pourcentage;
+            }
+          },
+        );
+        expect(prevue, greaterThan(25));
+        expect(auSommet0, closeTo(prevue!, 3));
+        expect(auSommet1, closeTo(0, 3));
+        // Une seule puissance pour les deux cols.
+        expect(cibles1.first, closeTo(cibles0.first, 4));
+      },
+    );
+
+    test('col suivant après une longue descente : chacun vide sa réserve', () {
+      final loin = Parcours.depuisProfil(const [
+        Troncon(2000, 0),
+        Troncon(3000, 7),
+        Troncon(15000, -5),
+        Troncon(3000, 7),
+        Troncon(2000, 0),
+      ]);
+      final coach = Coach(const Config(), parcours: loin);
+      final m0 = loin.montees.first;
+      EtatCoach? dansLeCol;
+      simuler(
+        coach,
+        dureeMaxS: 3 * 3600,
+        puissance: (c, t, d) => c.etat.puissanceCibleW ?? 150,
+        chaqueSeconde: (c, t, d, a) {
+          if (m0.contient(d) && c.etat.puissanceCibleW != null) {
+            dansLeCol ??= c.etat;
+          }
+        },
+      );
+      expect(dansLeCol!.colsEnchaines, 0);
+      expect(dansLeCol!.reserveSommetPct, closeTo(0, 1));
+    });
   });
 }
