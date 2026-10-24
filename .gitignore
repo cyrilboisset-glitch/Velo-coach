@@ -3,3 +3,6 @@ build/
 *.iml
 .idea/
 .vscode/
+
+# Données personnelles (traces GPS, sorties Strava) : jamais dans le dépôt
+donnees/

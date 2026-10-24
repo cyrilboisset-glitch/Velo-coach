@@ -101,7 +101,12 @@ double capGps(double lat1, double lon1, double lat2, double lon2) {
 /// Parcours rééchantillonné à pas régulier, altitude lissée, montées
 /// détectées.
 class Parcours {
-  Parcours._(this.segments, this.montees);
+  Parcours._(
+    this.segments,
+    this.montees, [
+    this.latitudes = const [],
+    this.longitudes = const [],
+  ]);
 
   /// Parcours tiré d'une trace GPS (fichier GPX).
   factory Parcours.depuisPoints(
@@ -144,6 +149,11 @@ class Parcours {
 
   final List<Segment> segments;
   final List<Montee> montees;
+
+  /// Coordonnées des points de la grille (un de plus que de segments),
+  /// vides pour un parcours décrit par profil. Servent au calage GPS.
+  final List<double> latitudes;
+  final List<double> longitudes;
 
   double get longueurM => segments.isEmpty ? 0 : segments.last.finM;
 
@@ -208,7 +218,7 @@ class Parcours {
       );
     }
 
-    return Parcours._(segments, _detecterMontees(gd, lisse, cfg));
+    return Parcours._(segments, _detecterMontees(gd, lisse, cfg), glat, glon);
   }
 
   /// Moyenne glissante centrée sur ±[demi] points. La fenêtre se
@@ -283,6 +293,9 @@ class Parcours {
     }
     return res;
   }
+
+  /// Index du segment où se trouve la distance [d].
+  int indexSegmentA(double d) => _indexA(d);
 
   int _indexA(double d) {
     var bas = 0;

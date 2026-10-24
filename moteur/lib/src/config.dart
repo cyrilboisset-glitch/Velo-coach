@@ -586,4 +586,27 @@ class Config {
   /// [CHOIX] Au-delà de 10 s sans donnée (pause, capteur perdu), la
   /// puissance de l'intervalle est comptée à 0 W.
   final double ecartMaxEchantillonsS;
+
+  /// Copie avec quelques groupes remplacés.
+  Config copie({
+    ConfigCycliste? cycliste,
+    ConfigManger? manger,
+    ConfigBoire? boire,
+    ConfigWbal? wbal,
+    ConfigPhysique? physique,
+    ConfigMontees? montees,
+    ConfigPacing? pacing,
+    ConfigAlertes? alertes,
+    double? ecartMaxEchantillonsS,
+  }) => Config(
+    cycliste: cycliste ?? this.cycliste,
+    manger: manger ?? this.manger,
+    boire: boire ?? this.boire,
+    wbal: wbal ?? this.wbal,
+    physique: physique ?? this.physique,
+    montees: montees ?? this.montees,
+    pacing: pacing ?? this.pacing,
+    alertes: alertes ?? this.alertes,
+    ecartMaxEchantillonsS: ecartMaxEchantillonsS ?? this.ecartMaxEchantillonsS,
+  );
 }

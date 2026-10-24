@@ -6,8 +6,11 @@
 library;
 
 export 'src/alertes.dart';
+export 'src/calage.dart';
 export 'src/coach.dart';
 export 'src/config.dart';
+export 'src/enregistrement.dart';
+export 'src/gpx.dart';
 export 'src/hydratation.dart'
     show Hydratation, ResultatCalibration, calibrerSudation;
 export 'src/lissage.dart';
@@ -15,5 +18,7 @@ export 'src/messages.dart';
 export 'src/pacing.dart';
 export 'src/parcours.dart';
 export 'src/physique.dart';
+export 'src/rapport.dart';
 export 'src/ravitaillement.dart';
+export 'src/simulateur.dart';
 export 'src/wbal.dart';
