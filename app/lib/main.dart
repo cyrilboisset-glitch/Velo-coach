@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:velo_coach_moteur/velo_coach_moteur.dart';
 
 import 'annonces.dart';
+import 'ecran_nutrition.dart';
 import 'capteurs.dart';
 import 'reglages.dart';
 import 'sortie.dart';
@@ -357,6 +358,42 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
           'FTP ${s.reglages.ftpW.round()} W · '
           '${_dec(s.reglages.poidsKg)} + ${_dec(s.reglages.veloKg)} kg',
           style: const TextStyle(color: _texte2),
+        ),
+        const SizedBox(height: 16),
+        _Carte(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ma nutrition',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${rythme(s.reglages.produitChoisi, s.reglages.objectifGh)}'
+                      ' (${_dec(s.reglages.objectifGh)} g/h)',
+                      style: const TextStyle(color: _texte2),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => EcranNutrition(reglages: s.reglages),
+                  ),
+                ),
+                child: const Text('Modifier'),
+              ),
+            ],
+          ),
         ),
         if (s.journal != null) ...[
           const SizedBox(height: 16),
@@ -751,7 +788,8 @@ class _Bilan extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = sortie.coach?.etat;
     if (e == null) return const SizedBox.shrink();
-    final sachets = (e.glucidesMangesG / Reglages.sachetG).round();
+    final produit = sortie.reglages.produitChoisi;
+    final portions = (e.glucidesMangesG / produit.glucidesG).round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -765,8 +803,8 @@ class _Bilan extends StatelessWidget {
           '${sortie.alertes.length} alertes',
         ),
         Text(
-          'Glucides : $sachets sachet${sachets > 1 ? 's' : ''} conseillé'
-          '${sachets > 1 ? 's' : ''} (${e.glucidesMangesG.round()} g), '
+          'Glucides : $portions × ${produit.nom} conseillé'
+          '${portions > 1 ? 's' : ''} (${e.glucidesMangesG.round()} g), '
           '${e.glucidesBrulesG.round()} g brûlés',
         ),
         Text(

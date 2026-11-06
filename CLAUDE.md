@@ -104,8 +104,11 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
 Codé dans l'appli v0.2 :
 - Compteur : alertes en notification Android (BiNavi via app iGPSPORT ou
   Gadgetbridge ; Magene via OnelapFit, à tester).
-- Glucides : mini-sachets Haribo Goldbären (9,8 g, 7,5 g de glucides),
-  20 g/h. Alerte « Mange 1 sachet ».
+- Glucides (v0.3, usage généraliste) : écran « Ma nutrition » ; chaque
+  utilisateur saisit ses produits (glucides par portion, ou pour 100 g
+  × poids de la portion), choisit celui de la sortie, l'objectif en g/h
+  et les glucides de sa boisson (g/L). Défauts : mini-sachet Haribo
+  (7,5 g), 20 g/h, eau. Alerte « Mange 1 <produit> ».
 - Aucune validation pendant la sortie : une alerte = faite (sachet
   mangé, 150 ml bus).
 - Capteurs : pédales Magene P715 (puissance + cadence en Bluetooth).

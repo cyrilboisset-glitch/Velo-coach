@@ -153,9 +153,14 @@ void main() {
     });
 
     test('un seul aliment réglé : « Mange 1 sachet »', () {
-      final m = Messages.mange(retardG: 8, aliment: 'Sachet');
-      expect(m.court, 'Mange 1 sachet');
-      expect(m.vocal, 'Mange un sachet.');
+      final m = Messages.mange(retardG: 8, aliment: 'mini-sachet Haribo');
+      expect(m.court, 'Mange 1 mini-sachet Haribo');
+      expect(m.vocal, "C'est l'heure de manger : mini-sachet Haribo.");
+      // Nom le plus long permis par l'appli (24 caractères) : tient en 40.
+      expect(
+        Messages.mange(retardG: 8, aliment: 'x' * 24).court.length,
+        lessThanOrEqualTo(40),
+      );
     });
 
     test('sansAccents', () {

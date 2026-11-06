@@ -60,12 +60,11 @@ abstract final class Messages {
     );
   }
 
-  /// [aliment] : si un seul aliment est réglé (par exemple « Sachet »),
+  /// [aliment] : si un seul aliment est réglé (par exemple « gel »),
   /// l'alerte dit d'en manger un, au lieu de donner le retard en grammes.
   static Message mange({required double retardG, String? aliment}) {
     if (aliment != null) {
-      final a = aliment.toLowerCase();
-      return Message('Mange 1 $a', 'Mange un $a.');
+      return Message('Mange 1 $aliment', "C'est l'heure de manger : $aliment.");
     }
     final g = _ent(retardG);
     return Message(
