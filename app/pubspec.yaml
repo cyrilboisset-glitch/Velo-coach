@@ -1,0 +1,30 @@
+name: velo_coach
+description: Coaching vélo en direct (manger, boire, puissance en montée) et suivi en direct.
+publish_to: 'none'
+# Le numéro après + doit toujours augmenter (Suivi direct était à +1).
+version: 0.2.0+2
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  velo_coach_moteur:
+    path: ../moteur
+  file_picker: ^13.3.2
+  flutter_blue_plus: ^2.3.15
+  flutter_local_notifications: ^22.3.3
+  flutter_tts: ^4.2.5
+  geolocator: ^14.1.2
+  http: ^1.6.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+

@@ -17,16 +17,20 @@ l'app iGPSPORT) et à la voix.
 
 | Étape | Contenu | État |
 |---|---|---|
-| 1 | Moteur de calcul pur + tests | **Fait** (88 tests) |
-| 2 | Mode simulation : rejouer un FIT + son GPX | À faire |
-| 3 | Connexion Bluetooth aux capteurs | À faire |
-| 4 | GPS, météo, import GPX, montées | À faire |
-| 5 | Notifications, voix, arrière-plan | À faire |
-| 6 | Interface et réglages | À faire |
+| 1 | Moteur de calcul pur + tests | **Fait** (89 tests) |
+| 2 | Mode simulation : rejouer une sortie + son GPX | En cours (simulateur fait, rapport à finir) |
+| 3 | Connexion Bluetooth aux capteurs | **v0.2** (puissance, cadence, cardio) |
+| 4 | GPS, météo, import GPX, montées | **v0.2** |
+| 5 | Notifications, voix, arrière-plan | **v0.2** |
+| 6 | Interface et réglages | **v0.2** (simple) |
+
+**Télécharger l'appli** (s'installe par-dessus Suivi direct, garde le même lien de suivi) :
+https://github.com/cyrilboisset-glitch/Velo-coach/releases/latest/download/velo-coach.apk
 
 ## Où est quoi
 
 ```
+app/                         Appli Android (Flutter) : coach + suivi en direct
 moteur/                      Dart pur, sans Flutter
   lib/src/config.dart        TOUS les coefficients, commentés, avec leur origine
   lib/src/ravitaillement.dart   Fonction 1 : manger

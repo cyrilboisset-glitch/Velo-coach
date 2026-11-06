@@ -77,6 +77,58 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
 - Étape 2 : rejouer une sortie Strava (via le connecteur Strava). Ne pas
   mettre ses traces GPS dans le dépôt (données personnelles).
 
+## Appli `app/` (fusion avec Suivi direct, 6 nov. 2026)
+
+- Appli Flutter `app/`, dépend du moteur par chemin (`../moteur`).
+  Reprend le suivi en direct du dépôt **Suivi-direct** (Firebase REST,
+  lien permanent, page de suivi qui reste sur GitHub Pages de
+  Suivi-direct, règles de la base dans ce dépôt-là).
+- **Identifiant Android `fr.cyril.suivi_direct` et clé de signature de
+  Suivi direct** (`app/ci/debug.keystore`) : l'appli s'installe par-dessus
+  Suivi direct et garde ses réglages (même lien de suivi). Le `+N` de
+  `version:` doit toujours augmenter.
+- Compilation par GitHub Actions (`.github/workflows/apk.yml`) :
+  `flutter create`, `app/ci/preparer_android.py` (autorisations, nom,
+  identifiant, desugaring), analyse, tests, APK publié en *Release*.
+- Fichiers : `sortie.dart` (GPS 1 s avec service de premier plan,
+  coach 1 fois/s, météo Open-Meteo 10 min, journal CSV), `capteurs.dart`
+  (Bluetooth puissance + cadence 0x2A63, cardio 0x2A37),
+  `annonces.dart` (notifications + voix), `suivi.dart` (Firebase, une
+  position / 10 s), `reglages.dart`, `main.dart` (écrans).
+- Flutter est installable dans l'environnement de Claude
+  (storage.googleapis.com) : `flutter analyze` et `flutter test` dans
+  `app/` avant d'envoyer. Pas de SDK Android : l'APK se compile sur GitHub.
+
+## Décisions de Cyril (oct.–nov. 2026), pas toutes codées
+
+Codé dans l'appli v0.2 :
+- Compteur : alertes en notification Android (BiNavi via app iGPSPORT ou
+  Gadgetbridge ; Magene via OnelapFit, à tester).
+- Glucides : mini-sachets Haribo Goldbären (9,8 g, 7,5 g de glucides),
+  20 g/h. Alerte « Mange 1 sachet ».
+- Aucune validation pendant la sortie : une alerte = faite (sachet
+  mangé, 150 ml bus).
+- Capteurs : pédales Magene P715 (puissance + cadence en Bluetooth).
+- Réglages par défaut : 90 kg, vélo 9 kg, FTP 203 W (Strava).
+
+À coder dans le moteur :
+- Moins de 1 h 15 : pas de glucides. Au-delà de 3 h : toujours 20 g/h,
+  et pause repas proposée si l'écart brûlés − mangés dépasse 200 g
+  (arrêt de plus de 10 min = pause faite).
+- Manger : jamais en montée (sauf replat), jamais en descente, jamais
+  au-dessus de 30 km/h ; plutôt 10 à 15 min avant une montée ; premier
+  sachet après 30 à 45 min ; rien dans les 20 dernières minutes ;
+  avant la sortie : nombre de sachets à prendre (+ marge).
+- Boire : sans restriction ; 2 bidons de 1 L suivis ; recharge
+  conseillée, comptée faite après un arrêt de plus de 2 min.
+- Braquet saisi (montages standards) ; plancher de puissance : cadence
+  mini 50 tr/min dans le plus petit braquet ; vitesse engagée déduite
+  de vitesse/cadence (Wheeltop lisible seulement si Bluetooth).
+- Mode « endurance » par défaut (cible plafonnée à 90 % FTP, plat
+  115–150 W, cadence plat 80–90, montée 65–80) et mode « à fond » en
+  option. Question encore ouverte : mode endurance par défaut ?
+- Correction après la sortie (écran bilan).
+
 ## Questions ouvertes (voir HYPOTHESES.md)
 
 - Le BiNavi affiche-t-il les notifications d'une appli tierce ? Les

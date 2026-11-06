@@ -6,3 +6,9 @@ build/
 
 # Données personnelles (traces GPS, sorties Strava) : jamais dans le dépôt
 donnees/
+
+# Appli Flutter : le projet Android est généré à la compilation
+app/android/
+app/.metadata
+app/.flutter-plugins
+app/.flutter-plugins-dependencies

@@ -152,6 +152,12 @@ void main() {
       expect(sans.vocal, isNot(contains('Garde')));
     });
 
+    test('un seul aliment réglé : « Mange 1 sachet »', () {
+      final m = Messages.mange(retardG: 8, aliment: 'Sachet');
+      expect(m.court, 'Mange 1 sachet');
+      expect(m.vocal, 'Mange un sachet.');
+    });
+
     test('sansAccents', () {
       expect(
         sansAccents('Élève à l’été, ça côtoie l’œuf'),

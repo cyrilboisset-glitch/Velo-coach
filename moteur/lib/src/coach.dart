@@ -528,7 +528,10 @@ class Coach {
         CandidatAlerte(
           type: TypeAlerte.manger,
           code: 'manger',
-          message: Messages.mange(retardG: manger.retardG),
+          message: Messages.mange(
+            retardG: manger.retardG,
+            aliment: cm.aliments.length == 1 ? cm.aliments.first.nom : null,
+          ),
           siEmise: manger.alerteEmise,
         ),
       );
