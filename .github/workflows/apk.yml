@@ -35,10 +35,8 @@ jobs:
           flutter create --org fr.cyril --project-name velo_coach --platforms android . 2>&1 | tee -a ../journal-1-preparation.txt
           rm -f test/widget_test.dart
           python3 ci/preparer_android.py 2>&1 | tee -a ../journal-1-preparation.txt
-          # Clé de signature fixe (celle de Suivi direct) : chaque version
-          # s'installe par-dessus la précédente, et par-dessus Suivi direct.
-          mkdir -p ~/.android
-          cp ci/debug.keystore ~/.android/debug.keystore
+          # La clé de signature fixe (ci/debug.keystore) est branchée par
+          # preparer_android.py : chaque version s'installe par-dessus.
 
       - name: Dépendances
         run: |
@@ -56,6 +54,13 @@ jobs:
           set -o pipefail
           flutter build apk --release 2>&1 | tee ../journal-4-compilation.txt
           cp build/app/outputs/flutter-apk/app-release.apk ../velo-coach.apk
+          # Vérifie que l'APK est bien signé avec la clé fixe du dépôt
+          attendu=$(keytool -list -v -keystore ci/debug.keystore -storepass android | grep -m1 'SHA256:' | sed 's/.*SHA256: //')
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          obtenu=$("$apksigner" verify --print-certs ../velo-coach.apk | grep -m1 'SHA-256 digest' | sed 's/.*: //' | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          echo "Clé attendue : $attendu" | tee -a ../journal-4-compilation.txt
+          echo "Clé de l'APK : $obtenu" | tee -a ../journal-4-compilation.txt
+          [ "$attendu" = "$obtenu" ] || { echo "APK signé avec une autre clé !" | tee -a ../journal-4-compilation.txt; exit 1; }
 
       # En cas d'échec, la fin des journaux devient une « annotation »,
       # lisible sans connexion (permet de corriger à distance).

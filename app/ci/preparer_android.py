@@ -65,6 +65,21 @@ g = remplacer(g, r'applicationId\s*=\s*"[^"]*"', 'applicationId = "fr.cyril.suiv
 if 'isCoreLibraryDesugaringEnabled' not in g:
     g = remplacer(g, r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true',
                   'compileOptions')
+# Signature avec la clé fixe du dépôt (ci/debug.keystore). Sans ça,
+# Gradle crée une clé de « debug » au hasard à chaque compilation sur
+# GitHub, et Android refuse d'installer une version par-dessus l'autre.
+if 'create("fixe")' not in g:
+    g = remplacer(g, r'(\n\s*buildTypes\s*\{)', lambda m: '''
+    signingConfigs {
+        create("fixe") {
+            storeFile = file("../../ci/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }''' + m.group(1), 'buildTypes')
+    g = remplacer(g, r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)',
+                  'signingConfig = signingConfigs.getByName("fixe")', 'signingConfig release')
 if 'desugar_jdk_libs' not in g:
     g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
 GRADLE.write_text(g, encoding='utf-8')
