@@ -83,10 +83,12 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
   Reprend le suivi en direct du dépôt **Suivi-direct** (Firebase REST,
   lien permanent, page de suivi qui reste sur GitHub Pages de
   Suivi-direct, règles de la base dans ce dépôt-là).
-- **Identifiant Android `fr.cyril.suivi_direct` et clé de signature de
-  Suivi direct** (`app/ci/debug.keystore`) : l'appli s'installe par-dessus
-  Suivi direct et garde ses réglages (même lien de suivi). Le `+N` de
-  `version:` doit toujours augmenter.
+- **Identifiant Android `fr.cyril.suivi_direct`**, clé fixe
+  `app/ci/debug.keystore` (SHA-256 CC:80:8E:D2…), branchée par
+  `preparer_android.py` et vérifiée par la CI depuis la v0.3.1. Avant,
+  Gradle signait avec une clé au hasard (Suivi direct compris) : il a
+  fallu désinstaller Suivi direct une fois (nouveau lien de suivi).
+  Le `+N` de `version:` doit toujours augmenter.
 - Compilation par GitHub Actions (`.github/workflows/apk.yml`) :
   `flutter create`, `app/ci/preparer_android.py` (autorisations, nom,
   identifiant, desugaring), analyse, tests, APK publié en *Release*.
