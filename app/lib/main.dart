@@ -19,6 +19,8 @@ import 'package:velo_coach_moteur/velo_coach_moteur.dart';
 import 'annonces.dart';
 import 'ecran_nutrition.dart';
 import 'capteurs.dart';
+import 'config_appli.dart';
+import 'diagnostic.dart';
 import 'reglages.dart';
 import 'sortie.dart';
 import 'suivi.dart';
@@ -34,19 +36,45 @@ const Color _texte2 = Color(0xFFA7AFBC);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final reglages = Reglages(prefs);
-  final capteurs = Capteurs(prefs);
-  final suivi = Suivi(prefs);
-  final sortie = Sortie(
-    reglages: reglages,
-    capteurs: capteurs,
-    suivi: suivi,
-    annonces: Annonces(),
-  );
-  await _rechargerParcours(prefs, sortie);
-  unawaited(capteurs.connecter());
-  runApp(AppliCoach(sortie: sortie, prefs: prefs));
+  Diagnostic.instance.brancher();
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final reglages = Reglages(prefs);
+    final capteurs = Capteurs(prefs);
+    final suivi = Suivi(prefs);
+    final sortie = Sortie(
+      reglages: reglages,
+      capteurs: capteurs,
+      suivi: suivi,
+      annonces: Annonces(),
+    );
+    await _rechargerParcours(prefs, sortie);
+    unawaited(
+      capteurs.connecter().catchError(
+        (Object e, StackTrace p) => Diagnostic.instance.noter(e, p),
+      ),
+    );
+    runApp(AppliCoach(sortie: sortie, prefs: prefs));
+  } catch (e, p) {
+    // Le démarrage a échoué : on l'affiche au lieu d'un écran noir.
+    Diagnostic.instance.noter(e, p);
+    runApp(
+      MaterialApp(
+        theme: ThemeData(brightness: Brightness.dark),
+        home: Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SelectableText(
+                'Vélo Coach $versionAppli : démarrage impossible.\n\n'
+                '${Diagnostic.instance.texte}',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ---- Parcours GPX gardé d'une fois sur l'autre ----------------------------
@@ -109,7 +137,7 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
   @override
   void initState() {
     super.initState();
-    for (final l in [s, s.capteurs, s.suivi, s.reglages]) {
+    for (final l in [s, s.capteurs, s.suivi, s.reglages, Diagnostic.instance]) {
       l.addListener(_rafraichir);
     }
     _horloge = Timer.periodic(const Duration(seconds: 1), (_) => _rafraichir());
@@ -117,7 +145,7 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
 
   @override
   void dispose() {
-    for (final l in [s, s.capteurs, s.suivi, s.reglages]) {
+    for (final l in [s, s.capteurs, s.suivi, s.reglages, Diagnostic.instance]) {
       l.removeListener(_rafraichir);
     }
     _horloge?.cancel();
@@ -221,13 +249,17 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
           ],
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.45,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            // Hauteur fixe : les chiffres ne sont jamais coupés, quelle
+            // que soit la taille de l'écran ou de la police.
+            mainAxisExtent: 124,
+          ),
           children: [
             _Chiffre('Puissance 3 s', _w(s.puissance3sW), 'W'),
             _Chiffre('Cadence', cad == null ? '–' : '${cad.round()}', 'tr/min'),
@@ -353,6 +385,10 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
               ),
             ),
           ],
+        ),
+        Text(
+          'Version $versionAppli',
+          style: const TextStyle(color: _texte2, fontSize: 12),
         ),
         Text(
           'FTP ${s.reglages.ftpW.round()} W · '
@@ -523,6 +559,42 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
         if (suivi.info != null)
           Text(suivi.info!, style: const TextStyle(color: _accent)),
         const SizedBox(height: 28),
+        if (Diagnostic.instance.erreurs.isNotEmpty) ...[
+          const _Titre('Problèmes rencontrés'),
+          _Carte(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  Diagnostic.instance.texte,
+                  style: const TextStyle(color: _orange, fontSize: 12),
+                  maxLines: 12,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: Diagnostic.instance.texte),
+                        );
+                        _message('Copié : colle-le dans un message.');
+                      },
+                      child: const Text('Copier'),
+                    ),
+                    TextButton(
+                      onPressed: Diagnostic.instance.effacer,
+                      child: const Text('Effacer'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+        ],
         const _Titre('Pour que tout tienne écran éteint'),
         const Text(
           "Dans les réglages de l'appli : batterie → Aucune restriction, "
@@ -698,7 +770,12 @@ class _Chiffre extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(libelle, style: const TextStyle(color: _texte2, fontSize: 14)),
+        Text(
+          libelle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: _texte2, fontSize: 14),
+        ),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,

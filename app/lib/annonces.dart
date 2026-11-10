@@ -1,10 +1,11 @@
 // Les alertes arrivent au cycliste par une notification Android (relayée
 // sur le compteur par l'app du compteur ou Gadgetbridge) et, si la voix
 // est activée, lues à voix haute dans les écouteurs.
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:velo_coach_moteur/velo_coach_moteur.dart';
+
+import 'diagnostic.dart';
 
 class Annonces {
   final FlutterLocalNotificationsPlugin _notifs =
@@ -23,21 +24,32 @@ class Annonces {
     category: AndroidNotificationCategory.message,
   );
 
+  /// Prépare les notifications et la voix. Ne bloque jamais la sortie :
+  /// ce qui ne démarre pas est noté dans le diagnostic de l'accueil.
   Future<void> preparer({required bool voix}) async {
     _voix = voix;
     if (_pret) return;
-    await _notifs.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
-    await _notifs
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
-    await _tts.setLanguage('fr-FR');
-    await _tts.setSpeechRate(0.5);
+    try {
+      await _notifs.initialize(
+        settings: const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
+      );
+      await _notifs
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+    } catch (e, p) {
+      Diagnostic.instance.noter('Notifications indisponibles : $e', p);
+    }
+    try {
+      await _tts.setLanguage('fr-FR');
+      await _tts.setSpeechRate(0.5);
+    } catch (e, p) {
+      _voix = false;
+      Diagnostic.instance.noter('Voix indisponible : $e', p);
+    }
     _pret = true;
   }
 
@@ -52,8 +64,8 @@ class Annonces {
         notificationDetails: const NotificationDetails(android: _canal),
       );
       if (_voix) await _tts.speak(a.texteVocal);
-    } catch (e) {
-      debugPrint('Annonce impossible : $e');
+    } catch (e, p) {
+      Diagnostic.instance.noter('Annonce impossible : $e', p);
     }
   }
 }

@@ -97,6 +97,11 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
   (Bluetooth puissance + cadence 0x2A63, cardio 0x2A37),
   `annonces.dart` (notifications + voix), `suivi.dart` (Firebase, une
   position / 10 s), `reglages.dart`, `main.dart` (écrans).
+- `diagnostic.dart` : les erreurs de l'appli s'affichent sur l'accueil
+  (« Problèmes rencontrés », bouton Copier) ; la version est affichée sous
+  le titre (`versionAppli` dans `config_appli.dart`, à garder égal à
+  `version:` de pubspec.yaml). `test/ecrans_test.dart` ouvre chaque écran
+  en simulation (a attrapé des chiffres coupés en v0.3.2).
 - Flutter est installable dans l'environnement de Claude
   (storage.googleapis.com) : `flutter analyze` et `flutter test` dans
   `app/` avant d'envoyer. Pas de SDK Android : l'APK se compile sur GitHub.
