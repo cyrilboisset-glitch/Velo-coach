@@ -30,4 +30,4 @@ const Duration intervalleMeteo = Duration(minutes: 10);
 const Duration ageMaxCapteur = Duration(seconds: 3);
 
 /// Numéro affiché sur l'accueil : le même que `version:` dans pubspec.yaml.
-const String versionAppli = '0.3.2';
+const String versionAppli = '0.3.3';

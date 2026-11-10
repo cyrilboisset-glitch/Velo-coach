@@ -79,6 +79,6 @@ jobs:
         with:
           tag_name: apk-${{ github.run_number }}
           name: Vélo Coach, version ${{ github.run_number }}
-          body: "Télécharger velo-coach.apk ci-dessous et l'ouvrir sur le téléphone. S'installe par-dessus Suivi direct."
+          body: "Télécharger velo-coach.apk ci-dessous et l'ouvrir sur le téléphone. S'installe à côté de Suivi direct (autre identifiant)."
           files: velo-coach.apk
           make_latest: true

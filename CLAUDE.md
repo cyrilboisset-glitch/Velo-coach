@@ -83,12 +83,15 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
   Reprend le suivi en direct du dépôt **Suivi-direct** (Firebase REST,
   lien permanent, page de suivi qui reste sur GitHub Pages de
   Suivi-direct, règles de la base dans ce dépôt-là).
-- **Identifiant Android `fr.cyril.suivi_direct`**, clé fixe
-  `app/ci/debug.keystore` (SHA-256 CC:80:8E:D2…), branchée par
-  `preparer_android.py` et vérifiée par la CI depuis la v0.3.1. Avant,
-  Gradle signait avec une clé au hasard (Suivi direct compris) : il a
-  fallu désinstaller Suivi direct une fois (nouveau lien de suivi).
-  Le `+N` de `version:` doit toujours augmenter.
+- **Identifiant Android `fr.cyril.velo_coach`** (v0.3.3) : Vélo Coach
+  s'installe À CÔTÉ de Suivi direct (Cyril veut le garder), avec son
+  propre lien de suivi. Clé de signature fixe `app/ci/debug.keystore`
+  (SHA-256 CC:80:8E:D2…), branchée par `preparer_android.py` et vérifiée
+  par la CI : les mises à jour de Vélo Coach s'installent par-dessus.
+  Historique : en v0.2 à v0.3.2, l'identifiant était celui de Suivi
+  direct, et Gradle signait avec une clé au hasard : « package en
+  conflit ». Ne plus changer l'identifiant. Le `+N` de `version:` doit
+  toujours augmenter.
 - Compilation par GitHub Actions (`.github/workflows/apk.yml`) :
   `flutter create`, `app/ci/preparer_android.py` (autorisations, nom,
   identifiant, desugaring), analyse, tests, APK publié en *Release*.

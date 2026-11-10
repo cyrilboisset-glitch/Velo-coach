@@ -1,9 +1,8 @@
 """Complète le projet Android généré par `flutter create` (dans la CI).
 
 Repris de Suivi direct, avec en plus :
-- identifiant Android `fr.cyril.suivi_direct` (celui de Suivi direct) :
-  Vélo Coach s'installe PAR-DESSUS Suivi direct et garde ses réglages,
-  donc le même lien de suivi ;
+- identifiant Android `fr.cyril.velo_coach` (propre à Vélo Coach : il
+  s'installe À CÔTÉ de Suivi direct, sans le remplacer) ;
 - autorisations Bluetooth (capteurs de puissance et de cardio) ;
 - « desugaring », exigé par flutter_local_notifications ;
 - nom affiché « Vélo Coach ».
@@ -60,7 +59,7 @@ MANIFESTE.write_text(texte, encoding='utf-8')
 
 # ---- Gradle ------------------------------------------------------------------
 g = GRADLE.read_text(encoding='utf-8')
-g = remplacer(g, r'applicationId\s*=\s*"[^"]*"', 'applicationId = "fr.cyril.suivi_direct"',
+g = remplacer(g, r'applicationId\s*=\s*"[^"]*"', 'applicationId = "fr.cyril.velo_coach"',
               'applicationId')
 if 'isCoreLibraryDesugaringEnabled' not in g:
     g = remplacer(g, r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true',

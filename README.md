@@ -24,7 +24,7 @@ l'app iGPSPORT) et à la voix.
 | 5 | Notifications, voix, arrière-plan | **v0.2** |
 | 6 | Interface et réglages | **v0.2** (simple) |
 
-**Télécharger l'appli** (s'installe par-dessus Suivi direct, garde le même lien de suivi) :
+**Télécharger l'appli** (s'installe à côté de Suivi direct, avec son propre lien de suivi) :
 https://github.com/cyrilboisset-glitch/Velo-coach/releases/latest/download/velo-coach.apk
 
 ## Où est quoi
