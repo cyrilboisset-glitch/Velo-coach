@@ -1,9 +1,9 @@
 // Vélo Coach : coaching en direct (manger, boire, puissance en montée) et
 // suivi en direct pour être suivi sur une carte (ancienne appli « Suivi
-// direct », fusionnée ici).
+// direct », fusionnée ici). Charte graphique de GOATout (charte.dart).
 //
-// Trois écrans dans un seul : avant la sortie (parcours, capteurs, lien
-// de suivi), pendant la sortie (gros chiffres), et les réglages.
+// Trois écrans : avant la sortie (parcours, capteurs, nutrition, lien de
+// suivi), pendant la sortie (gros chiffres, anneaux, profil), réglages.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -17,22 +17,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:velo_coach_moteur/velo_coach_moteur.dart';
 
 import 'annonces.dart';
-import 'ecran_nutrition.dart';
 import 'capteurs.dart';
+import 'charte.dart';
+import 'composants.dart';
 import 'config_appli.dart';
 import 'diagnostic.dart';
+import 'ecran_nutrition.dart';
 import 'reglages.dart';
 import 'sortie.dart';
 import 'suivi.dart';
-
-const Color _fond = Color(0xFF0E1014);
-const Color _surface = Color(0xFF171A20);
-const Color _ligne = Color(0xFF2A2F39);
-const Color _accent = Color(0xFFC8F031);
-const Color _rouge = Color(0xFFFF6B7A);
-const Color _orange = Color(0xFFF0A630);
-const Color _bleu = Color(0xFF6CB4FF);
-const Color _texte2 = Color(0xFFA7AFBC);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,7 +53,7 @@ Future<void> main() async {
     Diagnostic.instance.noter(e, p);
     runApp(
       MaterialApp(
-        theme: ThemeData(brightness: Brightness.dark),
+        theme: themeGoatout(),
         home: Scaffold(
           body: SafeArea(
             child: Padding(
@@ -104,16 +97,7 @@ class AppliCoach extends StatelessWidget {
     return MaterialApp(
       title: 'Vélo Coach',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: _fond,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _accent,
-          brightness: Brightness.dark,
-          surface: _surface,
-        ),
-      ),
+      theme: themeGoatout(),
       home: EcranPrincipal(sortie: sortie, prefs: prefs),
     );
   }
@@ -134,10 +118,18 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
 
   Sortie get s => widget.sortie;
 
+  List<Listenable> get _sources => [
+    s,
+    s.capteurs,
+    s.suivi,
+    s.reglages,
+    Diagnostic.instance,
+  ];
+
   @override
   void initState() {
     super.initState();
-    for (final l in [s, s.capteurs, s.suivi, s.reglages, Diagnostic.instance]) {
+    for (final l in _sources) {
       l.addListener(_rafraichir);
     }
     _horloge = Timer.periodic(const Duration(seconds: 1), (_) => _rafraichir());
@@ -145,7 +137,7 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
 
   @override
   void dispose() {
-    for (final l in [s, s.capteurs, s.suivi, s.reglages, Diagnostic.instance]) {
+    for (final l in _sources) {
       l.removeListener(_rafraichir);
     }
     _horloge?.cancel();
@@ -186,388 +178,644 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
     s.choisirParcours(null, null);
   }
 
-  Future<void> _confirmerArret() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Arrêter la sortie ?'),
-        content: const Text('Le coach et le suivi en direct s’arrêtent.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Continuer'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Arrêter'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) await s.arreter();
-  }
+  void _ouvrir(Widget ecran) =>
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ecran));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: s.active ? _enSortie() : _avantSortie()),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOutCubic,
+          transitionBuilder: (enfant, anim) => FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(
+              scale: Tween(begin: 0.97, end: 1.0).animate(anim),
+              child: enfant,
+            ),
+          ),
+          child: s.active
+              ? KeyedSubtree(key: const ValueKey('sortie'), child: _enSortie())
+              : KeyedSubtree(
+                  key: const ValueKey('accueil'),
+                  child: _avantSortie(),
+                ),
+        ),
+      ),
     );
   }
 
-  // ---- Pendant la sortie ---------------------------------------------------
+  // ======================================================================
+  // Pendant la sortie
+  // ======================================================================
 
   Widget _enSortie() {
-    final c = s.coach;
-    final e = c?.etat;
+    final e = s.coach?.etat;
+    final ftp = s.reglages.ftpW;
     final cad = s.capteurs.cadenceRpm(const Duration(seconds: 3));
+    final p3 = s.puissance3sW;
+    final zone = p3 == null ? null : zonePuissance(p3, ftp);
     final cible = e?.puissanceCibleW;
     final reste = s.resteParcoursM;
     final a = s.derniereAlerte;
+    final portionG = s.reglages.produitChoisi.glucidesG;
+    final parcours = s.parcours;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
+        // ---- Barre du haut : chrono + états
         Row(
           children: [
             Expanded(
               child: Text(
                 _duree(s.duree),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Polices.chiffresStyle(38, poids: FontWeight.w600),
               ),
             ),
-            _Pastille(
-              s.capteurs.connectePuissance ? 'Puissance OK' : 'Puissance ?',
-              s.capteurs.connectePuissance ? _accent : _orange,
+            Pastille(
+              s.capteurs.connectePuissance ? 'Watts' : 'Watts ?',
+              s.capteurs.connectePuissance ? Couleurs.vert : Couleurs.cuivre,
             ),
             const SizedBox(width: 6),
-            _Pastille(
+            Pastille(
               s.suivi.actif ? 'En direct' : 'Suivi coupé',
-              s.suivi.actif ? _accent : _texte2,
+              s.suivi.actif ? Couleurs.rouge : Couleurs.texte3,
+              vivante: s.suivi.actif,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        GridView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            // Hauteur fixe : les chiffres ne sont jamais coupés, quelle
-            // que soit la taille de l'écran ou de la police.
-            mainAxisExtent: 124,
-          ),
-          children: [
-            _Chiffre('Puissance 3 s', _w(s.puissance3sW), 'W'),
-            _Chiffre('Cadence', cad == null ? '–' : '${cad.round()}', 'tr/min'),
-            _Chiffre(
-              cible == null ? 'Cible' : 'Cible montée',
-              cible == null ? '–' : '${cible.round()}',
-              'W',
-              couleur: cible == null ? null : _accent,
-            ),
-            _Chiffre(
-              'Réserve',
-              e == null ? '–' : '${e.wbalPct.clamp(0, 100).round()}',
-              '%',
-            ),
-            _Chiffre(
-              'Glucides en retard',
-              e == null ? '–' : '${e.glucidesRetardG.round()}',
-              'g',
-              couleur: _orange,
-            ),
-            _Chiffre(
-              'Eau en retard',
-              e == null ? '–' : '${e.eauRetardMl.round()}',
-              'ml',
-              couleur: _bleu,
-            ),
-            _Chiffre('Parcouru', _km(s.distanceParcoursM ?? s.distanceM), 'km'),
-            _Chiffre('Restant', reste == null ? '–' : _km(reste), 'km'),
-          ],
-        ),
-        if (e?.monteeCourante != null) ...[
-          const SizedBox(height: 10),
-          _Carte(
-            child: Text(
-              'Montée : reste '
-              '${_km(e!.monteeCourante!.finM - (s.distanceParcoursM ?? 0))} km'
-              '${e.tempsRestantMonteeS == null ? '' : ', environ ${(e.tempsRestantMonteeS! / 60).round()} min'}',
-              style: const TextStyle(fontSize: 17),
-            ),
-          ),
-        ] else if (e?.prochaineMontee != null &&
-            e?.distanceProchaineM != null) ...[
-          const SizedBox(height: 10),
-          _Carte(
-            child: Text(
-              'Prochaine montée dans ${_km(e!.distanceProchaineM!)} km : '
-              '${_km(e.prochaineMontee!.longueurM)} km à '
-              '${_dec(100 * e.prochaineMontee!.penteMoyenne)} %',
-              style: const TextStyle(fontSize: 17),
-            ),
-          ),
-        ],
-        if (a != null) ...[
-          const SizedBox(height: 10),
-          _Carte(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Dernière alerte', style: TextStyle(color: _texte2)),
-                const SizedBox(height: 4),
-                Text(
-                  a.texte,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+        const SizedBox(height: 14),
+
+        // ---- Puissance (héros)
+        Carte(
+          lueur: zone?.couleur,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Puissance 3 s',
+                          style: TextStyle(
+                            color: Couleurs.texte2,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            ChiffreAnime(
+                              _w(p3),
+                              style: Polices.chiffresStyle(
+                                92,
+                                couleur: zone?.couleur ?? Couleurs.texte,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'W',
+                              style: Polices.chiffresStyle(
+                                26,
+                                poids: FontWeight.w500,
+                                couleur: Couleurs.texte3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Cadence',
+                        style: TextStyle(color: Couleurs.texte2, fontSize: 14),
+                      ),
+                      ChiffreAnime(
+                        cad == null ? '–' : '${cad.round()}',
+                        style: Polices.chiffresStyle(52),
+                      ),
+                      const Text(
+                        'tr/min',
+                        style: TextStyle(color: Couleurs.texte3, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (zone != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: zone.couleur.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Z${zone.numero} · ${zone.nom}',
+                    style: TextStyle(
+                      color: zone.couleur,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
+              if (cible != null) ...[
+                const SizedBox(height: 14),
+                _BarreCible(puissanceW: p3 ?? 0, cibleW: cible),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
+        const SizedBox(height: 14),
+
+        // ---- Anneaux : réserve, glucides, eau
+        Carte(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Flexible(
+                child: Anneau(
+                  fraction: (e?.wbalPct ?? 100) / 100,
+                  couleur: Couleurs.or,
+                  libelle: 'Réserve',
+                  centre: _CentreAnneau(
+                    e == null ? '–' : '${e.wbalPct.clamp(0, 100).round()}',
+                    '%',
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Anneau(
+                  fraction: e == null ? 0 : e.glucidesRetardG / portionG,
+                  couleur: Couleurs.cuivre,
+                  libelle: 'Glucides en retard',
+                  centre: _CentreAnneau(
+                    e == null
+                        ? '–'
+                        : '${e.glucidesRetardG.clamp(0, 999).round()}',
+                    'g',
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Anneau(
+                  fraction: e == null ? 0 : e.eauRetardMl / Reglages.gorgeesMl,
+                  couleur: Couleurs.bleu,
+                  libelle: 'Eau en retard',
+                  centre: _CentreAnneau(
+                    e == null ? '–' : '${e.eauRetardMl.clamp(0, 9999).round()}',
+                    'ml',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ---- Distance et profil
+        Carte(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _Mesure(
+                      'Parcouru',
+                      _km(s.distanceParcoursM ?? s.distanceM),
+                      'km',
+                    ),
+                  ),
+                  Expanded(
+                    child: _Mesure(
+                      'Restant',
+                      reste == null ? '–' : _km(reste),
+                      'km',
+                      aDroite: true,
+                    ),
+                  ),
+                ],
+              ),
+              if (parcours != null) ...[
+                const SizedBox(height: 12),
+                ProfilParcours(
+                  parcours: parcours,
+                  positionM: s.distanceParcoursM,
+                ),
+              ],
+              if (e?.monteeCourante != null) ...[
+                const SizedBox(height: 10),
+                _Bandeau(
+                  icone: Icons.terrain_rounded,
+                  couleur: Couleurs.or,
+                  texte:
+                      'Montée : reste '
+                      '${_km(e!.monteeCourante!.finM - (s.distanceParcoursM ?? 0))} km'
+                      '${e.tempsRestantMonteeS == null ? '' : ' · environ ${(e.tempsRestantMonteeS! / 60).round()} min'}',
+                ),
+              ] else if (e?.prochaineMontee != null &&
+                  e?.distanceProchaineM != null) ...[
+                const SizedBox(height: 10),
+                _Bandeau(
+                  icone: Icons.trending_up_rounded,
+                  couleur: Couleurs.texte2,
+                  texte:
+                      'Prochaine montée dans ${_km(e!.distanceProchaineM!)} km : '
+                      '${_km(e.prochaineMontee!.longueurM)} km à '
+                      '${_dec(100 * e.prochaineMontee!.penteMoyenne)} %',
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // ---- Dernière alerte
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          transitionBuilder: (enfant, anim) => SizeTransition(
+            sizeFactor: anim,
+            child: FadeTransition(opacity: anim, child: enfant),
+          ),
+          child: a == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  key: ValueKey(a.t),
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Carte(
+                    lueur: _couleurAlerte(a.type),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: _couleurAlerte(
+                              a.type,
+                            ).withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _iconeAlerte(a.type),
+                            color: _couleurAlerte(a.type),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Dernière alerte',
+                                style: TextStyle(
+                                  color: Couleurs.texte3,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                              Text(a.texte, style: Polices.titreStyle(19)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
         if (s.erreur != null || s.suivi.erreur != null) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             s.erreur ?? s.suivi.erreur!,
-            style: const TextStyle(color: _orange),
+            style: const TextStyle(color: Couleurs.cuivre),
           ),
         ],
-        const SizedBox(height: 18),
-        SizedBox(
-          height: 64,
-          child: FilledButton(
-            onPressed: _confirmerArret,
-            style: FilledButton.styleFrom(
-              backgroundColor: _rouge,
-              foregroundColor: _fond,
-            ),
-            child: const Text(
-              'Arrêter la sortie',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-          ),
+        const SizedBox(height: 22),
+        BoutonMaintenir(
+          texte: 'Maintenir pour arrêter',
+          onValide: () => s.arreter(),
         ),
       ],
     );
   }
 
-  // ---- Avant la sortie ------------------------------------------------------
+  // ======================================================================
+  // Avant la sortie
+  // ======================================================================
 
   Widget _avantSortie() {
     final p = s.parcours;
     final cap = s.capteurs;
     final suivi = s.suivi;
+    final r = s.reglages;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
       children: [
+        // ---- En-tête
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Expanded(
-              child: Text(
-                'Vélo Coach',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Logo(),
+                  SizedBox(height: 6),
+                  Accroche('Mange, bois, dose ton effort.'),
+                ],
               ),
             ),
-            IconButton(
-              tooltip: 'Réglages',
-              icon: const Icon(Icons.settings),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => EcranReglages(reglages: s.reglages),
-                ),
-              ),
+            _BoutonRond(
+              icone: Icons.tune_rounded,
+              bulle: 'Réglages',
+              onTap: () => _ouvrir(EcranReglages(reglages: r)),
             ),
           ],
         ),
-        Text(
-          'Version $versionAppli',
-          style: const TextStyle(color: _texte2, fontSize: 12),
+        const SizedBox(height: 18),
+
+        // ---- Profil du cycliste
+        Row(
+          children: [
+            Expanded(child: _Puce('FTP', '${r.ftpW.round()}', 'W')),
+            const SizedBox(width: 10),
+            Expanded(child: _Puce('Poids', _dec(r.poidsKg), 'kg')),
+            const SizedBox(width: 10),
+            Expanded(child: _Puce('W/kg', _dec2(r.ftpW / r.poidsKg), '')),
+          ],
         ),
-        Text(
-          'FTP ${s.reglages.ftpW.round()} W · '
-          '${_dec(s.reglages.poidsKg)} + ${_dec(s.reglages.veloKg)} kg',
-          style: const TextStyle(color: _texte2),
+        const SizedBox(height: 18),
+
+        BoutonOr(
+          texte: s.demarrage ? 'Démarrage…' : 'Démarrer la sortie',
+          icone: Icons.play_arrow_rounded,
+          onPressed: s.demarrage ? null : s.demarrer,
         ),
-        const SizedBox(height: 16),
-        _Carte(
-          child: Row(
+        if (s.erreur != null) ...[
+          const SizedBox(height: 10),
+          Text(s.erreur!, style: const TextStyle(color: Couleurs.cuivre)),
+        ],
+
+        if (s.journal != null) ...[
+          const SizedBox(height: 18),
+          Carte(
+            lueur: Couleurs.or,
+            child: _Bilan(sortie: s),
+          ),
+        ],
+
+        // ---- Parcours
+        const SizedBox(height: 26),
+        const Rubrique('Parcours', icone: Icons.route_rounded),
+        Carte(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (p == null)
+                const Text(
+                  'Sans parcours, le coach gère manger et boire, mais pas les '
+                  'montées. Importe le GPX de ta sortie (Komoot, Strava, '
+                  'GOATout…).',
+                  style: TextStyle(color: Couleurs.texte2),
+                )
+              else ...[
+                Text(
+                  s.nomParcours ?? 'Parcours',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Polices.titreStyle(18),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 18,
+                  runSpacing: 6,
                   children: [
-                    const Text(
-                      'Ma nutrition',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${rythme(s.reglages.produitChoisi, s.reglages.objectifGh)}'
-                      ' (${_dec(s.reglages.objectifGh)} g/h)',
-                      style: const TextStyle(color: _texte2),
-                    ),
+                    _Mesure('Distance', _km(p.longueurM), 'km'),
+                    _Mesure('Dénivelé', '${_deniveleM(p).round()}', 'm'),
+                    _Mesure('Montées', '${p.montees.length}', ''),
                   ],
                 ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => EcranNutrition(reglages: s.reglages),
+                const SizedBox(height: 12),
+                ProfilParcours(parcours: p),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _importerGpx,
+                    icon: const Icon(
+                      Icons.upload_file_rounded,
+                      color: Couleurs.or,
+                    ),
+                    label: Text(
+                      p == null ? 'Importer un GPX' : 'Changer de GPX',
+                    ),
                   ),
-                ),
-                child: const Text('Modifier'),
+                  if (p != null)
+                    TextButton(
+                      onPressed: _retirerGpx,
+                      child: const Text('Retirer'),
+                    ),
+                ],
               ),
             ],
           ),
         ),
-        if (s.journal != null) ...[
-          const SizedBox(height: 16),
-          _Carte(child: _Bilan(sortie: s)),
-        ],
-        const SizedBox(height: 20),
-        SizedBox(
-          height: 72,
-          child: FilledButton(
-            onPressed: s.demarrage ? null : s.demarrer,
-            style: FilledButton.styleFrom(
-              backgroundColor: _accent,
-              foregroundColor: _fond,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+
+        // ---- Nutrition
+        const SizedBox(height: 26),
+        const Rubrique('Nutrition', icone: Icons.restaurant_rounded),
+        Carte(
+          onTap: () => _ouvrir(EcranNutrition(reglages: r)),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Couleurs.cuivre.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cookie_rounded, color: Couleurs.cuivre),
               ),
-            ),
-            child: Text(
-              s.demarrage ? 'Démarrage…' : 'Démarrer la sortie',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ma nutrition', style: Polices.titreStyle(17)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${rythme(r.produitChoisi, r.objectifGh)}'
+                      ' (${_dec(r.objectifGh)} g/h)',
+                      style: const TextStyle(color: Couleurs.texte2),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Couleurs.texte3),
+            ],
           ),
         ),
-        if (s.erreur != null) ...[
-          const SizedBox(height: 10),
-          Text(s.erreur!, style: const TextStyle(color: _orange)),
-        ],
-        const SizedBox(height: 28),
-        const _Titre('Parcours'),
-        if (p == null)
-          const Text(
-            'Sans parcours, le coach gère manger et boire, mais pas les '
-            'montées. Importe le GPX de ta sortie (Komoot, Strava…).',
-            style: TextStyle(color: _texte2),
-          )
-        else
-          Text(
-            '${s.nomParcours ?? 'Parcours'} : ${_km(p.longueurM)} km, '
-            '${p.montees.length} montée${p.montees.length > 1 ? 's' : ''}'
-            '${p.montees.isEmpty ? '' : ' (${p.montees.map((m) => '${_km(m.longueurM)} km à ${_dec(100 * m.penteMoyenne)} %').join(', ')})'}',
-            style: const TextStyle(color: _texte2),
+
+        // ---- Capteurs
+        const SizedBox(height: 26),
+        const Rubrique('Capteurs', icone: Icons.bluetooth_rounded),
+        Carte(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _LigneCapteur(
+                icone: Icons.bolt_rounded,
+                libelle: 'Puissance',
+                nom: cap.nomPuissance,
+                connecte: cap.connectePuissance,
+                onOublier: () => cap.oublier(TypeCapteur.puissance),
+              ),
+              const Divider(height: 18),
+              _LigneCapteur(
+                icone: Icons.favorite_rounded,
+                libelle: 'Cardio',
+                nom: cap.nomCardio,
+                connecte: cap.connecteCardio,
+                onOublier: () => cap.oublier(TypeCapteur.cardio),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: cap.recherche ? null : cap.chercher,
+                icon: cap.recherche
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Couleurs.or,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.bluetooth_searching_rounded,
+                        color: Couleurs.or,
+                      ),
+                label: Text(
+                  cap.recherche
+                      ? 'Recherche… (pédale un peu)'
+                      : 'Chercher les capteurs',
+                ),
+              ),
+              for (final t in cap.trouves)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    t.type == TypeCapteur.puissance
+                        ? Icons.bolt_rounded
+                        : Icons.favorite_rounded,
+                  ),
+                  title: Text(t.nom),
+                  subtitle: Text(
+                    t.type == TypeCapteur.puissance ? 'Puissance' : 'Cardio',
+                    style: const TextStyle(color: Couleurs.texte3),
+                  ),
+                  trailing: FilledButton(
+                    onPressed: () => cap.choisir(t),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(60, 40),
+                    ),
+                    child: const Text('Utiliser'),
+                  ),
+                ),
+              if (cap.erreur != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  cap.erreur!,
+                  style: const TextStyle(color: Couleurs.cuivre),
+                ),
+              ],
+            ],
           ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _importerGpx,
-              icon: const Icon(Icons.route),
-              label: Text(p == null ? 'Importer un GPX' : 'Changer de GPX'),
-            ),
-            if (p != null)
-              TextButton(onPressed: _retirerGpx, child: const Text('Retirer')),
-          ],
         ),
-        const SizedBox(height: 28),
-        const _Titre('Capteurs'),
-        _LigneCapteur(
-          'Puissance',
-          cap.nomPuissance,
-          cap.connectePuissance,
-          onOublier: () => cap.oublier(TypeCapteur.puissance),
-        ),
-        _LigneCapteur(
-          'Cardio',
-          cap.nomCardio,
-          cap.connecteCardio,
-          onOublier: () => cap.oublier(TypeCapteur.cardio),
-        ),
-        const SizedBox(height: 6),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: cap.recherche ? null : cap.chercher,
-            icon: const Icon(Icons.bluetooth_searching),
-            label: Text(
-              cap.recherche
-                  ? 'Recherche… (pédale un peu)'
-                  : 'Chercher les capteurs',
-            ),
+
+        // ---- Suivi en direct
+        const SizedBox(height: 26),
+        const Rubrique('Suivi en direct', icone: Icons.share_location_rounded),
+        Carte(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: suivi.partage,
+                onChanged: (v) => suivi.partage = v,
+                title: const Text('Partager ma position pendant la sortie'),
+              ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Couleurs.fond,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Couleurs.ligne),
+                ),
+                child: SelectableText(
+                  suivi.lienPage,
+                  style: const TextStyle(color: Couleurs.texte2, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: suivi.lienPage),
+                      );
+                      _message('Lien copié : colle-le dans un SMS.');
+                    },
+                    icon: const Icon(Icons.copy_rounded, color: Couleurs.or),
+                    label: const Text('Copier le lien'),
+                  ),
+                  TextButton(
+                    onPressed: () => suivi.changerDeLien(),
+                    child: const Text('Changer de lien'),
+                  ),
+                ],
+              ),
+              if (suivi.info != null)
+                Text(suivi.info!, style: const TextStyle(color: Couleurs.or)),
+            ],
           ),
         ),
-        for (final t in cap.trouves)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              t.type == TypeCapteur.puissance ? Icons.bolt : Icons.favorite,
-            ),
-            title: Text(t.nom),
-            subtitle: Text(
-              t.type == TypeCapteur.puissance ? 'Puissance' : 'Cardio',
-            ),
-            trailing: TextButton(
-              onPressed: () => cap.choisir(t),
-              child: const Text('Utiliser'),
-            ),
-          ),
-        if (cap.erreur != null)
-          Text(cap.erreur!, style: const TextStyle(color: _orange)),
-        const SizedBox(height: 28),
-        const _Titre('Suivi en direct'),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: suivi.partage,
-          onChanged: (v) => suivi.partage = v,
-          title: const Text('Partager ma position pendant la sortie'),
-        ),
-        SelectableText(suivi.lienPage, style: const TextStyle(color: _texte2)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: suivi.lienPage));
-                _message('Lien copié : colle-le dans un SMS.');
-              },
-              icon: const Icon(Icons.copy),
-              label: const Text('Copier le lien'),
-            ),
-            TextButton(
-              onPressed: () => suivi.changerDeLien(),
-              child: const Text('Changer de lien'),
-            ),
-          ],
-        ),
-        if (suivi.info != null)
-          Text(suivi.info!, style: const TextStyle(color: _accent)),
-        const SizedBox(height: 28),
+
+        // ---- Problèmes rencontrés
         if (Diagnostic.instance.erreurs.isNotEmpty) ...[
-          const _Titre('Problèmes rencontrés'),
-          _Carte(
+          const SizedBox(height: 26),
+          const Rubrique(
+            'Problèmes rencontrés',
+            icone: Icons.report_problem_rounded,
+          ),
+          Carte(
+            lueur: Couleurs.rouge,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   Diagnostic.instance.texte,
-                  style: const TextStyle(color: _orange, fontSize: 12),
+                  style: const TextStyle(color: Couleurs.cuivre, fontSize: 12),
                   maxLines: 12,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -593,22 +841,41 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
               ],
             ),
           ),
-          const SizedBox(height: 28),
         ],
-        const _Titre('Pour que tout tienne écran éteint'),
-        const Text(
-          "Dans les réglages de l'appli : batterie → Aucune restriction, "
-          "démarrage automatique activé, notifications autorisées. Ne ferme "
-          "pas l'appli depuis les applis récentes pendant une sortie.",
-          style: TextStyle(color: _texte2),
+
+        // ---- Écran éteint
+        const SizedBox(height: 26),
+        const Rubrique(
+          'Pour que tout tienne écran éteint',
+          icone: Icons.battery_saver_rounded,
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: () => Geolocator.openAppSettings(),
-            icon: const Icon(Icons.settings_applications),
-            label: const Text("Ouvrir les réglages de l'appli"),
+        Carte(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Dans les réglages de l'appli : batterie sur « Aucune restriction », "
+                'démarrage automatique activé, notifications autorisées. Ne '
+                "ferme pas l'appli depuis les applis récentes pendant une sortie.",
+                style: TextStyle(color: Couleurs.texte2),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => Geolocator.openAppSettings(),
+                icon: const Icon(
+                  Icons.settings_applications_rounded,
+                  color: Couleurs.or,
+                ),
+                label: const Text("Ouvrir les réglages de l'appli"),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: Text(
+            'Version $versionAppli',
+            style: const TextStyle(color: Couleurs.texte3, fontSize: 12),
           ),
         ),
       ],
@@ -616,7 +883,9 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
   }
 }
 
-// ---- Réglages -----------------------------------------------------------------
+// ==========================================================================
+// Réglages
+// ==========================================================================
 
 class EcranReglages extends StatefulWidget {
   const EcranReglages({super.key, required this.reglages});
@@ -665,35 +934,54 @@ class _EcranReglagesState extends State<EcranReglages> {
   Widget build(BuildContext context) {
     Widget champ(String libelle, TextEditingController c, String unite) =>
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 14),
           child: TextField(
             controller: c,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: libelle,
-              suffixText: unite,
-              border: const OutlineInputBorder(),
-            ),
+            style: Polices.chiffresStyle(22, poids: FontWeight.w600),
+            decoration: InputDecoration(labelText: libelle, suffixText: unite),
           ),
         );
     return Scaffold(
       appBar: AppBar(title: const Text('Réglages')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          champ('Ton poids', _poids, 'kg'),
-          champ('Poids du vélo équipé', _velo, 'kg'),
-          champ('FTP', _ftp, 'W'),
-          champ("Réserve W′ (laisser 18 si tu ne sais pas)", _wprime, 'kJ'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _voix,
-            onChanged: (v) => setState(() => _voix = v),
-            title: const Text('Annonces à voix haute'),
+          const Rubrique('Toi et ton vélo', icone: Icons.pedal_bike_rounded),
+          Carte(
+            child: Column(
+              children: [
+                champ('Ton poids', _poids, 'kg'),
+                champ('Poids du vélo équipé', _velo, 'kg'),
+                champ('FTP', _ftp, 'W'),
+                champ(
+                  "Réserve W′ (laisse 18 si tu ne sais pas)",
+                  _wprime,
+                  'kJ',
+                ),
+              ],
+            ),
           ),
-          if (_erreur != null)
-            Text(_erreur!, style: const TextStyle(color: _orange)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 22),
+          const Rubrique('Annonces', icone: Icons.record_voice_over_rounded),
+          Carte(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _voix,
+              onChanged: (v) => setState(() => _voix = v),
+              title: const Text('Annonces à voix haute'),
+              subtitle: const Text(
+                'Dans tes écouteurs, en plus des notifications.',
+                style: TextStyle(color: Couleurs.texte3),
+              ),
+            ),
+          ),
+          if (_erreur != null) ...[
+            const SizedBox(height: 12),
+            Text(_erreur!, style: const TextStyle(color: Couleurs.cuivre)),
+          ],
+          const SizedBox(height: 24),
           FilledButton(
             onPressed: _enregistrer,
             child: const Text('Enregistrer'),
@@ -704,7 +992,9 @@ class _EcranReglagesState extends State<EcranReglages> {
   }
 }
 
-// ---- Petits éléments ------------------------------------------------------------
+// ==========================================================================
+// Petits éléments
+// ==========================================================================
 
 String _dec(double x) {
   final t = x.toStringAsFixed(1);
@@ -713,6 +1003,8 @@ String _dec(double x) {
     ',',
   );
 }
+
+String _dec2(double x) => x.toStringAsFixed(2).replaceAll('.', ',');
 
 String _km(double m) => (m / 1000).toStringAsFixed(1).replaceAll('.', ',');
 
@@ -725,75 +1017,94 @@ String _duree(Duration d) {
   return '$h:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
 }
 
-class _Titre extends StatelessWidget {
-  const _Titre(this.texte);
-  final String texte;
+double _deniveleM(Parcours p) {
+  var d = 0.0;
+  for (final s in p.segments) {
+    if (s.pente > 0) d += s.pente * s.longueurM;
+  }
+  return d;
+}
+
+Color _couleurAlerte(TypeAlerte t) => switch (t) {
+  TypeAlerte.montee => Couleurs.or,
+  TypeAlerte.manger => Couleurs.cuivre,
+  TypeAlerte.boire => Couleurs.bleu,
+};
+
+IconData _iconeAlerte(TypeAlerte t) => switch (t) {
+  TypeAlerte.montee => Icons.terrain_rounded,
+  TypeAlerte.manger => Icons.cookie_rounded,
+  TypeAlerte.boire => Icons.water_drop_rounded,
+};
+
+class _BoutonRond extends StatelessWidget {
+  const _BoutonRond({
+    required this.icone,
+    required this.bulle,
+    required this.onTap,
+  });
+  final IconData icone;
+  final String bulle;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      texte,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+  Widget build(BuildContext context) => Tooltip(
+    message: bulle,
+    child: Material(
+      color: Couleurs.surface,
+      shape: const CircleBorder(side: BorderSide(color: Couleurs.ligne)),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(icone, color: Couleurs.texte),
+        ),
+      ),
     ),
   );
 }
 
-class _Carte extends StatelessWidget {
-  const _Carte({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: _surface,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _ligne),
-    ),
-    child: child,
-  );
-}
-
-class _Chiffre extends StatelessWidget {
-  const _Chiffre(this.libelle, this.valeur, this.unite, {this.couleur});
-
+/// Petite case chiffrée de l'accueil (FTP, poids, W/kg).
+class _Puce extends StatelessWidget {
+  const _Puce(this.libelle, this.valeur, this.unite);
   final String libelle;
   final String valeur;
   final String unite;
-  final Color? couleur;
 
   @override
-  Widget build(BuildContext context) => _Carte(
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: Couleurs.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Couleurs.ligne),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           libelle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: _texte2, fontSize: 14),
+          style: const TextStyle(color: Couleurs.texte3, fontSize: 12),
         ),
+        const SizedBox(height: 2),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text.rich(
             TextSpan(
               children: [
-                TextSpan(
-                  text: valeur,
-                  style: TextStyle(
-                    fontSize: 44,
-                    fontWeight: FontWeight.w800,
-                    color: couleur,
+                TextSpan(text: valeur, style: Polices.chiffresStyle(28)),
+                if (unite.isNotEmpty)
+                  TextSpan(
+                    text: ' $unite',
+                    style: Polices.chiffresStyle(
+                      16,
+                      poids: FontWeight.w500,
+                      couleur: Couleurs.texte3,
+                    ),
                   ),
-                ),
-                TextSpan(
-                  text: ' $unite',
-                  style: const TextStyle(fontSize: 16, color: _texte2),
-                ),
               ],
             ),
           ),
@@ -803,58 +1114,214 @@ class _Chiffre extends StatelessWidget {
   );
 }
 
-class _Pastille extends StatelessWidget {
-  const _Pastille(this.texte, this.couleur);
-  final String texte;
-  final Color couleur;
+/// Libellé + grand chiffre + unité.
+class _Mesure extends StatelessWidget {
+  const _Mesure(this.libelle, this.valeur, this.unite, {this.aDroite = false});
+  final String libelle;
+  final String valeur;
+  final String unite;
+  final bool aDroite;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: couleur),
-    ),
-    child: Text(texte, style: TextStyle(color: couleur, fontSize: 12)),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: aDroite
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        libelle,
+        style: const TextStyle(color: Couleurs.texte3, fontSize: 13),
+      ),
+      Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: valeur, style: Polices.chiffresStyle(34)),
+            if (unite.isNotEmpty)
+              TextSpan(
+                text: ' $unite',
+                style: Polices.chiffresStyle(
+                  17,
+                  poids: FontWeight.w500,
+                  couleur: Couleurs.texte3,
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
   );
 }
 
+class _CentreAnneau extends StatelessWidget {
+  const _CentreAnneau(this.valeur, this.unite);
+  final String valeur;
+  final String unite;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ChiffreAnime(valeur, style: Polices.chiffresStyle(32)),
+          Text(
+            unite,
+            style: const TextStyle(color: Couleurs.texte3, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _Bandeau extends StatelessWidget {
+  const _Bandeau({
+    required this.icone,
+    required this.couleur,
+    required this.texte,
+  });
+  final IconData icone;
+  final Color couleur;
+  final String texte;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: couleur.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        Icon(icone, color: couleur, size: 20),
+        const SizedBox(width: 10),
+        Expanded(child: Text(texte, style: const TextStyle(fontSize: 15))),
+      ],
+    ),
+  );
+}
+
+/// Barre « puissance tenue / puissance cible » en montée.
+class _BarreCible extends StatelessWidget {
+  const _BarreCible({required this.puissanceW, required this.cibleW});
+  final double puissanceW;
+  final double cibleW;
+
+  @override
+  Widget build(BuildContext context) {
+    final rapport = cibleW <= 0 ? 0.0 : puissanceW / cibleW;
+    final couleur = rapport > 1.05
+        ? Couleurs.rouge
+        : rapport >= 0.9
+        ? Couleurs.vert
+        : Couleurs.or;
+    final message = rapport > 1.05
+        ? 'Lève le pied'
+        : rapport >= 0.9
+        ? 'Parfait, garde ça'
+        : 'Tu peux appuyer';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.flag_rounded, color: Couleurs.or, size: 18),
+            const SizedBox(width: 6),
+            Text('Cible ', style: const TextStyle(color: Couleurs.texte2)),
+            Text(
+              '${cibleW.round()} W',
+              style: Polices.chiffresStyle(22, couleur: Couleurs.or),
+            ),
+            const Spacer(),
+            Text(
+              message,
+              style: TextStyle(color: couleur, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(end: (rapport / 1.3).clamp(0.0, 1.0)),
+            duration: const Duration(milliseconds: 500),
+            builder: (_, v, _) => Stack(
+              children: [
+                Container(height: 10, color: Couleurs.surface2),
+                FractionallySizedBox(
+                  widthFactor: v,
+                  child: Container(height: 10, color: couleur),
+                ),
+                // Trait de la cible (à 1/1,3 de la largeur)
+                Align(
+                  alignment: const Alignment(2 / 1.3 - 1, 0),
+                  child: Container(width: 3, height: 10, color: Couleurs.texte),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _LigneCapteur extends StatelessWidget {
-  const _LigneCapteur(
-    this.libelle,
-    this.nom,
-    this.connecte, {
+  const _LigneCapteur({
+    required this.icone,
+    required this.libelle,
+    required this.nom,
+    required this.connecte,
     required this.onOublier,
   });
 
+  final IconData icone;
   final String libelle;
   final String? nom;
   final bool connecte;
   final VoidCallback onOublier;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(
+  Widget build(BuildContext context) {
+    final couleur = nom == null
+        ? Couleurs.texte3
+        : (connecte ? Couleurs.vert : Couleurs.cuivre);
+    return Row(
       children: [
-        Icon(
-          Icons.circle,
-          size: 12,
-          color: nom == null ? _texte2 : (connecte ? _accent : _orange),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: couleur.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icone, color: couleur, size: 22),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            nom == null
-                ? '$libelle : aucun capteur choisi'
-                : '$libelle : $nom (${connecte ? 'connecté' : 'pas encore connecté'})',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(libelle, style: Polices.titreStyle(16)),
+              Text(
+                nom == null
+                    ? 'Aucun capteur choisi'
+                    : '$nom · ${connecte ? 'connecté' : 'en attente'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: couleur, fontSize: 13),
+              ),
+            ],
           ),
         ),
         if (nom != null)
           TextButton(onPressed: onOublier, child: const Text('Oublier')),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _Bilan extends StatelessWidget {
@@ -870,28 +1337,39 @@ class _Bilan extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Dernière sortie',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        Row(
+          children: [
+            const Icon(Icons.emoji_events_rounded, color: Couleurs.or),
+            const SizedBox(width: 8),
+            Text('Dernière sortie', style: Polices.titreStyle(18)),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          '${_km(sortie.distanceM)} km · ${e.travailKj.round()} kJ · '
-          '${sortie.alertes.length} alertes',
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 18,
+          runSpacing: 8,
+          children: [
+            _Mesure('Distance', _km(sortie.distanceM), 'km'),
+            _Mesure('Travail', '${e.travailKj.round()}', 'kJ'),
+            _Mesure('Alertes', '${sortie.alertes.length}', ''),
+          ],
         ),
+        const SizedBox(height: 10),
         Text(
           'Glucides : $portions × ${produit.nom} conseillé'
           '${portions > 1 ? 's' : ''} (${e.glucidesMangesG.round()} g), '
           '${e.glucidesBrulesG.round()} g brûlés',
+          style: const TextStyle(color: Couleurs.texte2),
         ),
         Text(
           'Eau : ${_dec(e.eauBueL)} L conseillés, '
           '${_dec(e.eauPerdueL)} L de sueur estimée',
+          style: const TextStyle(color: Couleurs.texte2),
         ),
         const SizedBox(height: 4),
         const Text(
           'Journal enregistré dans le téléphone (fichier CSV).',
-          style: TextStyle(color: _texte2),
+          style: TextStyle(color: Couleurs.texte3, fontSize: 12.5),
         ),
       ],
     );

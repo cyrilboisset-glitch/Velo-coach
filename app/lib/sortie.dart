@@ -69,7 +69,11 @@ class Sortie extends ChangeNotifier {
       debut == null ? Duration.zero : DateTime.now().difference(debut!);
 
   /// Distance sur le parcours (GPX) si on est calé dessus.
-  double? get distanceParcoursM => _calage?.derniereM;
+  double? get distanceParcoursM => positionSimuleeM ?? _calage?.derniereM;
+
+  /// Pour les captures d'écran et les tests : position imposée.
+  @visibleForTesting
+  double? positionSimuleeM;
 
   double? get resteParcoursM {
     final p = parcours;

@@ -12,3 +12,6 @@ app/android/
 app/.metadata
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
+
+# Captures d'écran des tests (CAPTURES=1)
+app/test/captures/

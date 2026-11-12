@@ -105,6 +105,18 @@ Avancer **étape par étape** et **montrer chaque étape** avant de passer
   le titre (`versionAppli` dans `config_appli.dart`, à garder égal à
   `version:` de pubspec.yaml). `test/ecrans_test.dart` ouvre chaque écran
   en simulation (a attrapé des chiffres coupés en v0.3.2).
+- **Charte GOATout (v0.4.0, demande de Cyril)** : `charte.dart` (couleurs
+  de GOATout / dépôt New-strava : fond #0f0e0d, cartes #1c1a17 / #27241f,
+  lignes #3a342c, texte #f4efe6, or #f0cf73, cuivre #e9a178 ; polices
+  Space Grotesk pour les titres, Barlow Condensed pour les chiffres, TTF
+  OFL dans `app/fonts/`), `composants.dart` (Logo « Vélo » crème +
+  « Coach » or, Carte avec lueur, anneaux animés, profil du parcours,
+  point « en direct » qui pulse, bouton doré, bouton « Maintenir pour
+  arrêter »). Zones de puissance de Coggan en couleur (`zonePuissance`).
+  Captures avec les vraies polices : `CAPTURES=1 flutter test
+  test/captures_test.dart --update-goldens` -> `test/captures/*.png`
+  (non versionné) ; `test/flutter_test_config.dart` charge les polices
+  pour tous les tests.
 - Flutter est installable dans l'environnement de Claude
   (storage.googleapis.com) : `flutter analyze` et `flutter test` dans
   `app/` avant d'envoyer. Pas de SDK Android : l'APK se compile sur GitHub.

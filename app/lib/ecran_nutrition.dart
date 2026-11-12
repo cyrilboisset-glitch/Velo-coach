@@ -3,11 +3,12 @@
 // la boisson.
 import 'package:flutter/material.dart';
 
+import 'charte.dart';
+import 'composants.dart';
 import 'reglages.dart';
 
-const Color _texte2 = Color(0xFFA7AFBC);
-const Color _orange = Color(0xFFF0A630);
-const Color _accent = Color(0xFFC8F031);
+const Color _texte2 = Couleurs.texte2;
+const Color _orange = Couleurs.cuivre;
 
 String _dec(double x) {
   final t = x.toStringAsFixed(1);
@@ -122,7 +123,6 @@ class _EcranNutritionState extends State<EcranNutrition> {
             decoration: const InputDecoration(
               labelText: 'Objectif',
               suffixText: 'g par heure',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 8),
@@ -159,7 +159,10 @@ class _EcranNutritionState extends State<EcranNutrition> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Radio<int>(value: i),
-                    title: Text(_produits[i].nom),
+                    title: Text(
+                      _produits[i].nom,
+                      style: Polices.titreStyle(16, poids: 600),
+                    ),
                     subtitle: Text(
                       '${_dec(_produits[i].glucidesG)} g de glucides par portion',
                     ),
@@ -193,15 +196,19 @@ class _EcranNutritionState extends State<EcranNutrition> {
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: _accent),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Pendant la sortie : ${rythme(choisi, _objectifGh)}.',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          Carte(
+            lueur: Couleurs.or,
+            child: Row(
+              children: [
+                const Icon(Icons.schedule_rounded, color: Couleurs.or),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Pendant la sortie : ${rythme(choisi, _objectifGh)}.',
+                    style: Polices.titreStyle(16, poids: 600),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 28),
@@ -212,7 +219,6 @@ class _EcranNutritionState extends State<EcranNutrition> {
             decoration: const InputDecoration(
               labelText: 'Glucides pour 1 litre',
               suffixText: 'g',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 8),
@@ -330,7 +336,6 @@ class _DialogueProduitState extends State<_DialogueProduit> {
               decoration: const InputDecoration(
                 labelText: 'Nom (court)',
                 hintText: 'ex. gel Maurten, barre Clif',
-                border: OutlineInputBorder(),
               ),
             ),
             const Text("Sur l'emballage, je lis les glucides :"),
@@ -385,10 +390,7 @@ class _Titre extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      texte,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-    ),
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(texte, style: Polices.titreStyle(19, couleur: Couleurs.or)),
   );
 }

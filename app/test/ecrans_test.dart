@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:velo_coach/annonces.dart';
 import 'package:velo_coach/capteurs.dart';
+import 'package:velo_coach/composants.dart';
 import 'package:velo_coach/ecran_nutrition.dart';
 import 'package:velo_coach/main.dart';
 import 'package:velo_coach/reglages.dart';
@@ -37,7 +38,7 @@ void main() {
     await t.pumpWidget(
       AppliCoach(sortie: s, prefs: await SharedPreferences.getInstance()),
     );
-    expect(find.text('Vélo Coach'), findsOneWidget);
+    expect(find.byType(Logo), findsOneWidget);
     expect(find.text('Démarrer la sortie'), findsOneWidget);
     expect(find.text('Ma nutrition'), findsOneWidget);
     expect(
@@ -76,7 +77,7 @@ void main() {
     await t.pumpWidget(
       AppliCoach(sortie: s, prefs: await SharedPreferences.getInstance()),
     );
-    expect(find.text('Arrêter la sortie'), findsOneWidget);
+    expect(find.text('Maintenir pour arrêter'), findsOneWidget);
     expect(find.text('Puissance 3 s'), findsOneWidget);
     expect(find.text('Glucides en retard'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
@@ -143,6 +144,8 @@ void main() {
         liste,
         const Offset(0, -200),
       );
+      await t.drag(liste, const Offset(0, -400));
+      await t.pumpAndSettle();
       await t.tap(find.text('Enregistrer'));
       await t.pumpAndSettle();
       expect(s.reglages.produits.last.nom, 'pâtes de fruits');
