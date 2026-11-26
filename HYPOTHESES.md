@@ -81,3 +81,5 @@ valeurs chiffrées s'appuient sur la littérature publiée : Jeukendrup 2014
 
 Non fait pour l'instant : pesée après sortie dans l'appli, ration de
 récupération, avertissement glucose/fructose au-dessus de 60 g/h.
+
+| 28 | Mode endurance par défaut : cible en montée plafonnée à 90 % de FTP (réponse « oui » de Cyril) ; la valeur 90 % vient de sa note, à ajuster | ⚠ HYPOTHÈSE (plat 115–150 W et cadence non codés) |

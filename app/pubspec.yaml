@@ -2,7 +2,7 @@ name: velo_coach
 description: Coaching vélo en direct (manger, boire, puissance en montée) et suivi en direct.
 publish_to: 'none'
 # Le numéro après + doit toujours augmenter (Suivi direct était à +1).
-version: 0.5.0+8
+version: 0.5.1+9
 
 environment:
   sdk: ^3.11.0

@@ -527,6 +527,8 @@ class ConfigPacing {
   const ConfigPacing({
     this.recalculS = 30,
     this.puissanceMaxPctFtp = 130,
+    this.modeEndurance = true,
+    this.puissanceMaxEndurancePctFtp = 90,
     this.puissanceMinPctFtp = 50,
     this.reserveFinMonteePct = 0,
     this.enchainementMaxS = 600,
@@ -552,6 +554,22 @@ class ConfigPacing {
   /// d'effort (Poole et al., 2016). La cible est alors plafonnée à 130 %
   /// de FTP et marquée « plafonnée ».
   final double puissanceMaxPctFtp;
+
+  /// [PERSO] Mode « endurance » (réponse « oui » de Cyril, nov. 2026) :
+  /// la cible en montée est plafonnée à [puissanceMaxEndurancePctFtp] % de
+  /// FTP (90 % : on garde des forces, on ne fait pas un effort maximal).
+  /// `false` = mode « à fond » : seule la borne de 130 % s'applique.
+  /// ⚠ HYPOTHÈSE : 90 % est une valeur de départ, à ajuster. Les plages de
+  /// puissance sur le plat et de cadence ne sont pas encore codées.
+  final bool modeEndurance;
+  final double puissanceMaxEndurancePctFtp;
+
+  /// Plafond réellement appliqué (% de FTP).
+  double get plafondPctFtp => modeEndurance
+      ? (puissanceMaxEndurancePctFtp < puissanceMaxPctFtp
+            ? puissanceMaxEndurancePctFtp
+            : puissanceMaxPctFtp)
+      : puissanceMaxPctFtp;
   final double puissanceMinPctFtp;
 
   /// [CDC] Réserve laissée en haut du DERNIER col d'un enchaînement

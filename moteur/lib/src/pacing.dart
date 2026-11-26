@@ -70,7 +70,7 @@ ResultatPacing calculerPacing({
   ModeleWbal modele = ModeleWbal.differentiel,
 }) {
   final pMin = cfg.puissanceMinPctFtp / 100 * ftpW;
-  final pMax = cfg.puissanceMaxPctFtp / 100 * ftpW;
+  final pMax = cfg.plafondPctFtp / 100 * ftpW;
   final reserveFinJ = cfg.reserveFinMonteePct / 100 * wPrimeJ;
   final longueur = segments.fold(0.0, (s, x) => s + x.longueurM);
   if (longueur < 1) {

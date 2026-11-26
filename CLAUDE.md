@@ -151,7 +151,7 @@ Codé dans l'appli v0.2 :
   de vitesse/cadence (Wheeltop lisible seulement si Bluetooth).
 - Mode « endurance » par défaut (cible plafonnée à 90 % FTP, plat
   115–150 W, cadence plat 80–90, montée 65–80) et mode « à fond » en
-  option. Question encore ouverte : mode endurance par défaut ?
+  option. **Mode endurance par défaut : validé par Cyril (v0.5.1)** — cible en montée plafonnée à 90 % FTP (`ConfigPacing.modeEndurance`). Plages de puissance sur le plat et de cadence : pas encore codées.
 - Correction après la sortie (écran bilan).
 
 ## Questions ouvertes (voir HYPOTHESES.md)

@@ -22,7 +22,7 @@ ResultatPacing _pacing(
   List<Segment> segs, {
   double cp = 250,
   double wbal = 18000,
-  ConfigPacing cfg = const ConfigPacing(),
+  ConfigPacing cfg = const ConfigPacing(modeEndurance: false),
   ConditionsRoulage? cond,
 }) => calculerPacing(
   segments: segs,
@@ -74,11 +74,17 @@ void main() {
       expect(vent.puissanceW, greaterThan(250));
     });
 
+    test('mode endurance (défaut) : cible plafonnée à 90 % de FTP', () {
+      final r = _pacing(_montee(_col), cfg: const ConfigPacing());
+      expect(r.puissanceW, closeTo(225, 0.01)); // 90 % de 250 W
+      expect(r.plafonnee, isTrue);
+    });
+
     test('garder 20 % de réserve baisse la cible', () {
       final r0 = _pacing(_montee(_col));
       final r20 = _pacing(
         _montee(_col),
-        cfg: const ConfigPacing(reserveFinMonteePct: 20),
+        cfg: const ConfigPacing(modeEndurance: false, reserveFinMonteePct: 20),
       );
       expect(r20.puissanceW, lessThan(r0.puissanceW));
       expect(r20.puissanceW, closeTo(250 + 0.8 * 18000 / r20.dureeS, 0.2));
@@ -110,7 +116,10 @@ void main() {
       ]);
       final pur = _pacing(
         _montee(long),
-        cfg: const ConfigPacing(declinLongueDureeParLn: 0),
+        cfg: const ConfigPacing(
+          modeEndurance: false,
+          declinLongueDureeParLn: 0,
+        ),
       );
       expect(pur.dureeS, greaterThan(1.5 * 3600));
       // Formule pure : quasiment la FTP pendant plus d'une heure et demie.
@@ -129,7 +138,10 @@ void main() {
   group('En suivant la cible, la réserve arrive vide au sommet', () {
     for (final modele in ModeleWbal.values) {
       test('modèle ${modele.name}', () {
-        final cfg = Config(wbal: ConfigWbal(modele: modele));
+        final cfg = Config(
+          wbal: ConfigWbal(modele: modele),
+          pacing: const ConfigPacing(modeEndurance: false),
+        );
         final coach = Coach(cfg, parcours: _col);
         final m = _col.montees.single;
         final cibles = <double>[];
@@ -192,7 +204,7 @@ void main() {
         wbalJ: 18000,
         wPrimeJ: 18000,
         ftpW: 250,
-        cfg: const ConfigPacing(),
+        cfg: const ConfigPacing(modeEndurance: false),
         conditions: _cond,
       );
       expect(seul.reserveSommetJ, closeTo(0, 50));
@@ -205,7 +217,10 @@ void main() {
     test(
       'en suivant la cible : réserve gardée en haut du 1er, vide en haut du 2e',
       () {
-        final coach = Coach(const Config(), parcours: deux);
+        final coach = Coach(
+          const Config(pacing: ConfigPacing(modeEndurance: false)),
+          parcours: deux,
+        );
         final m0 = deux.montees[0];
         final m1 = deux.montees[1];
         final cibles0 = <double>[];
@@ -255,7 +270,10 @@ void main() {
         Troncon(3000, 7),
         Troncon(2000, 0),
       ]);
-      final coach = Coach(const Config(), parcours: loin);
+      final coach = Coach(
+        const Config(pacing: ConfigPacing(modeEndurance: false)),
+        parcours: loin,
+      );
       final m0 = loin.montees.first;
       EtatCoach? dansLeCol;
       simuler(
