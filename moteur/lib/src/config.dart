@@ -110,7 +110,13 @@ class ConfigManger {
     this.anticipationDansMinS = 600,
     this.anticipationDansMaxS = 900,
     this.anticipationSiRetardProjete = true,
-    this.reporterPendantMontee = true,
+    this.dureeMinGlucidesS = 4500,
+    this.premierePriseS = 2400,
+    this.vitesseMaxMangerKmh = 30,
+    this.penteMinMangerPct = -2,
+    this.penteMaxMangerPct = 3,
+    this.pauseRepasEcartG = 200,
+    this.arretPauseRepasS = 600,
   });
 
   /// [CDC] Rendement brut : part de l'énergie dépensée par le corps qui
@@ -142,10 +148,15 @@ class ConfigManger {
   /// ⚠ HYPOTHÈSE : durée de lissage non validée.
   final double lissageIntensiteS;
 
-  /// [CDC] Quantité maximale de glucides que l'intestin absorbe (g/h).
-  /// [LITT] Jusqu'à environ 60 g/h avec du glucose seul, jusqu'à environ
-  /// 90 g/h avec un mélange glucose + fructose (Jeukendrup, 2014, Sports
-  /// Medicine). Se travaille à l'entraînement.
+  /// [CDC] Glucides à manger par heure (objectif choisi par l'utilisateur,
+  /// 20 g/h par défaut : sortie tranquille, garder des forces).
+  /// [LITT] Repères de Jeukendrup (2014, Sports Medicine) : 30 à 75 min,
+  /// rien ou rinçage de bouche ; 1 à 2 h, 30 g/h ; 2 à 3 h, 60 g/h ;
+  /// plus de 2 h 30, jusqu'à 90 g/h avec un MÉLANGE glucose + fructose
+  /// (le transporteur du glucose sature vers 60 g/h, celui du fructose
+  /// vers 30 g/h). Ces repères visent des sportifs entraînés ; l'apport
+  /// n'a « rien de systématique » et se règle selon la séance et la
+  /// personne. Le ventre s'entraîne (gut training).
   final double toleranceMaxGh;
 
   /// [CHOIX] Le plafond de tolérance s'applique au débit moyen sur
@@ -183,9 +194,40 @@ class ConfigManger {
   /// te dire de manger alors que tu viens de prendre une barre.
   final bool anticipationSiRetardProjete;
 
-  /// [CHOIX] D'après ta remarque « on mange mal en montée » : pendant une
-  /// montée, l'alerte « mange » normale attend le sommet.
-  final bool reporterPendantMontee;
+  /// [CDC + LITT] Sortie prévue de moins de 1 h 15 : pas de glucides, de
+  /// l'eau seulement. Jeukendrup (2014, Sports Medicine) : de 30 à
+  /// 75 min, « petites quantités ou rinçage de bouche » ; au-delà de
+  /// 1 h 15 l'apport devient utile. Appliqué seulement quand la durée
+  /// prévue est connue (GPX ou durée choisie).
+  final double dureeMinGlucidesS;
+
+  /// [CDC] Pas de glucides au tout début : les réserves sont pleines.
+  /// Cyril : « premier sachet après 30 à 45 min » ; 40 min retenues.
+  /// Avant ce moment, le retard ne s'accumule pas (pas de rattrapage).
+  final double premierePriseS;
+
+  /// [CDC] Jamais de glucides au-dessus de 30 km/h (mains au guidon,
+  /// risque de chute), ni en descente, ni en forte montée.
+  final double vitesseMaxMangerKmh;
+
+  /// [CHOIX] Descente = pente sous −2 %. « Replat » = pente jusqu'à
+  /// +3 % : on peut manger. Au-delà, on est « en montée » : on attend.
+  /// ⚠ HYPOTHÈSE : seuils à ajuster selon tes routes.
+  final double penteMinMangerPct;
+  final double penteMaxMangerPct;
+
+  /// [CDC] Pause repas conseillée quand l'écart « glucides brûlés moins
+  /// glucides mangés » atteint 200 g, puis tous les 200 g. Cyril : au
+  /// delà de 3 h on reste à son rythme mais on propose une pause.
+  /// [LITT] Les réserves de glycogène (autour de 400 à 500 g chez un
+  /// sportif entraîné) s'épuisent proportionnellement à l'intensité ;
+  /// sous environ 20 à 25 % de réserves, la capacité de contraction
+  /// baisse (Ørtenblad et al., 2023 ; Impey et al., 2018).
+  /// ⚠ HYPOTHÈSE : le seuil de 200 g est un repère, pas une mesure.
+  final double pauseRepasEcartG;
+
+  /// [CDC] Arrêt de plus de 10 min = pause repas considérée comme faite.
+  final double arretPauseRepasS;
 
   /// Part des glucides pour une intensité donnée (% de FTP).
   double partGlucides(double pctFtp) {
@@ -215,13 +257,16 @@ class ConfigBoire {
     this.coefTemperatureParDegre = 0.04,
     this.facteurTemperatureMin = 0.5,
     this.facteurTemperatureMax = 2.0,
-    this.coefHumiditeParPct = 0.005,
+    this.coefHumiditeParPct = -0.003,
     this.facteurHumiditeMin = 0.8,
-    this.facteurHumiditeMax = 1.3,
+    this.facteurHumiditeMax = 1.2,
     this.partFixeIntensite = 0.4,
     this.facteurIntensiteMin = 0.3,
     this.lissageIntensiteS = 300,
     this.ratioRemplacement = 1.0,
+    this.perteMaxPctPoids = 2,
+    this.ratioRemplacementMin = 0.5,
+    this.dureePrevueDefautS = 10800,
     this.plafondBoireLh = 1.0,
     this.seuilAlerteMl = 150,
     this.boissons = const [
@@ -251,10 +296,15 @@ class ConfigBoire {
   final double facteurTemperatureMin;
   final double facteurTemperatureMax;
 
-  /// [CHOIX] +0,5 % par point d'humidité au-dessus de 50 % : en air
-  /// humide, la sueur s'évapore mal, on en produit plus pour se
-  /// refroidir. Exemple : 90 % → × 1,2.
-  /// ⚠ HYPOTHÈSE : coefficient non validé.
+  /// [LITT + CHOIX] −0,3 % de sudation par point d'humidité au-dessus de
+  /// 50 % (+0,3 % en dessous). Exemple : 90 % → × 0,88 ; 20 % → × 1,09.
+  /// Le sens vient de la conférence « Nutrition du sport – triathlon »
+  /// (T. Langlet, diététicien-nutritionniste) : la
+  /// chaleur augmente la sudation, l'humidité la diminue. Les données
+  /// d'exemple qu'il montre (coureur, automne) suivent ce sens, mais les
+  /// jours humides y étaient aussi des jours frais : l'effet est en
+  /// partie mélangé à celui de la température, d'où une valeur petite.
+  /// ⚠ HYPOTHÈSE : à vérifier avec la calibration (pesées).
   final double coefHumiditeParPct;
   final double facteurHumiditeMin;
   final double facteurHumiditeMax;
@@ -272,8 +322,28 @@ class ConfigBoire {
   /// glissante sur environ 5 minutes.
   final double lissageIntensiteS;
 
-  /// [CHOIX] Part de la sueur à compenser en buvant (1 = tout).
+  /// [CHOIX] Part maximale de la sueur à compenser en buvant (1 = tout).
   final double ratioRemplacement;
+
+  /// [LITT] Objectif : ne pas perdre plus de 2 % de son poids pendant
+  /// l'effort. Au-delà, la performance et la capacité aérobie baissent
+  /// (Périard et al., 2021, Physiological Reviews, revue de 44 études ;
+  /// Kenefick, 2018). Le plan d'hydratation n'est donc PAS « remplacer
+  /// toute la sueur » : on boit juste assez pour rester sous ce seuil.
+  /// Exemple : athlète de 78 kg, 4 h, sueur 1,2 L/h : perte tolérée
+  /// 1,56 kg, à boire (4 × 1,2 − 1,56) / 4 = 0,8 L/h. 0 = tout remplacer.
+  final double perteMaxPctPoids;
+
+  /// [CHOIX] Même quand la sortie est courte et que la sueur reste sous
+  /// la perte tolérée, on garde un rappel régulier : au moins la moitié de
+  /// la sueur (environ 0,35 L/h par temps doux), pour que tu boives
+  /// avant d'avoir soif. ⚠ HYPOTHÈSE : valeur non validée.
+  final double ratioRemplacementMin;
+
+  /// [CHOIX] Durée supposée quand elle n'est pas connue (ni GPX, ni durée
+  /// choisie) : 3 h. Si la sortie dure plus longtemps, le plan s'ajuste
+  /// tout seul (la perte tolérée se répartit sur moins d'heures).
+  final double dureePrevueDefautS;
 
   /// [CHOIX] Objectif de boisson plafonné à 1 L/h : au-delà, l'estomac
   /// suit mal et boire trop d'eau sans sel expose à l'hyponatrémie.
@@ -543,7 +613,24 @@ class ConfigAlertes {
     this.intervalleMinS = 60,
     this.longueurMaxTexte = 40,
     this.sansAccents = false,
+    this.chaleurSeuilC = 30,
+    this.chaleurTresChaudC = 35,
+    this.chaleurRepeteS = 2700,
   });
+
+  /// [CHOIX] Alerte « chaleur » (refroidissement) à partir de 30 °C, puis
+  /// « très chaud » à 35 °C, au plus une fois toutes les 45 min.
+  /// [LITT] Refroidir pendant l'effort améliore la performance en
+  /// ambiance chaude : eau glacée à boire, gilet, aspersion d'eau sur la
+  /// peau, menthol (Bongers et al., 2020, Br J Sports Med). Le coup de
+  /// chaleur d'exercice (température du corps de 38,5 à 40 °C) se
+  /// repère à : sueur abondante, vertiges, nausées, peau moite
+  /// (Périard et al., 2021). Les seuils de température sont les miens.
+  /// ⚠ HYPOTHÈSE : à ajuster (dépend de l'acclimatation, environ 10
+  /// jours pour s'adapter). 0 = pas d'alerte.
+  final double chaleurSeuilC;
+  final double chaleurTresChaudC;
+  final double chaleurRepeteS;
 
   /// [CDC] Pas plus d'une alerte par minute.
   /// Priorité [CDC] : montée > manger > boire (voir TypeAlerte).

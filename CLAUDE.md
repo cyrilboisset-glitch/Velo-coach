@@ -158,3 +158,12 @@ Codé dans l'appli v0.2 :
 
 - Le BiNavi affiche-t-il les notifications d'une appli tierce ? Les
   accents ?
+
+## Version 0.5.0 (nov. 2026) : nutrition d'après la conférence de T. Langlet
+
+Moteur : `plan.dart` (plan de sortie), hydratation « 2 % », alerte
+chaleur, pause repas, règles de pente. Appli : carte « Plan de sortie »
+sur l'accueil, section « Ma sortie type » dans Ma nutrition. Le PDF de la
+conférence ne doit jamais être mis dans le dépôt. Voir HYPOTHESES.md
+(21 à 27). Reste : pesée après sortie, ration de récupération,
+glucose/fructose.

@@ -73,6 +73,32 @@ abstract final class Messages {
     );
   }
 
+  static Message pauseRepas() => const Message(
+    'Pause repas conseillée',
+    'Fais une pause repas. Tes réserves de glucides baissent.',
+  );
+
+  /// [tresChaud] : seuil le plus haut. Le texte court tient en 40
+  /// caractères ; la voix ajoute les signes du coup de chaleur.
+  static Message chaleur({
+    required double temperatureC,
+    bool tresChaud = false,
+  }) {
+    final t = _ent(temperatureC);
+    if (tresChaud) {
+      return Message(
+        'Très chaud $t° : ralentis, ombre',
+        'Il fait très chaud, $t degrés. Ralentis, cherche de l\'ombre, '
+            'bois et arrose-toi. Malaise, nausées ou vertiges : arrête-toi.',
+      );
+    }
+    return Message(
+      'Chaud $t° : bois, arrose ta nuque',
+      'Il fait chaud, $t degrés. Bois régulièrement et mouille-toi la '
+          'nuque et les bras pour te rafraîchir.',
+    );
+  }
+
   static Message bois({required double retardMl}) {
     final ml = _ent(retardMl);
     return Message(

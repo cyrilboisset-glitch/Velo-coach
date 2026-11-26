@@ -62,3 +62,22 @@ choix, `[PERSO]` ta valeur personnelle.
 | 18 | L'app iGPSPORT transfère les notifications de n'importe quelle appli vers le BiNavi | **À tester dès le premier APK** |
 | 19 | Le BiNavi affiche les accents (sinon option `sansAccents`) | À tester |
 | 20 | En montée, un rappel toutes les 5 min suffit (plus une annonce si la cible bouge de 10 W) [CHOIX] | Sur le vélo |
+
+## Mise à jour 0.5.0 : nutrition et hydratation (conférence « Nutrition du sport – triathlon », T. Langlet)
+
+Le support de la conférence n'est pas versionné (document protégé). Les
+valeurs chiffrées s'appuient sur la littérature publiée : Jeukendrup 2014
+(glucides), Thomas 2016 (avant départ), Périard 2021 (chaleur).
+
+| # | Changement | Statut |
+|---|---|---|
+| 21 | Plan d'hydratation « 2 % » : on boit la part de la sueur qui dépasse 2 % du poids sur la durée prévue (au moins la moitié de la sueur, [CHOIX]) | ⚠ HYPOTHÈSE : sueur estimée, à calibrer par pesée avant/après |
+| 22 | Effet de l'humidité sur la sueur : **−0,3 % par point** (signe inversé : l'ancien +0,5 % contredisait le document) | ⚠ HYPOTHÈSE, valeur [CHOIX] |
+| 23 | Glucides : rien avant 1 h 15, premier sachet à 40 min, jamais en pente > 3 % ou < −2 %, jamais > 30 km/h (sauf « avant le col ») | Décisions de Cyril + [CHOIX] pour les pentes |
+| 24 | Pause repas conseillée quand brûlés − mangés ≥ 200 g, puis tous les 200 g ; un arrêt de plus de 10 min compte comme pause | Décision de Cyril |
+| 25 | Alerte chaleur à 30 °C puis « très chaud » à 35 °C, rappel toutes les 45 min | ⚠ HYPOTHÈSE [CHOIX] |
+| 26 | Plan de sortie : 5 à 10 ml/kg d'eau dans les 4 h avant le départ ; durée GPX estimée à 65 % de FTP + 10 % d'arrêts ; repères 30/60/90 g/h à titre indicatif | [LITT] / [CHOIX] |
+| 27 | Sodium : saisi par l'utilisateur, repère 300 à 700 mg/h affiché | Pas d'alerte sodium |
+
+Non fait pour l'instant : pesée après sortie dans l'appli, ration de
+récupération, avertissement glucose/fructose au-dessus de 60 g/h.

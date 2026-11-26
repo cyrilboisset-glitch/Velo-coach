@@ -66,6 +66,11 @@ class EtatCoach {
     required this.eauObjectifL,
     required this.eauBueL,
     required this.eauRetardMl,
+    this.eauRatioPlan = 1,
+    this.eauPerteEstimeePct = 0,
+    this.eauHeuresEquivalentes = 0,
+    this.glucidesEcartG = 0,
+    this.fenetreMangerOuverte = true,
     this.monteeCourante,
     this.puissanceCibleW,
     this.tempsRestantMonteeS,
@@ -96,6 +101,22 @@ class EtatCoach {
   final double eauObjectifL;
   final double eauBueL;
   final double eauRetardMl;
+
+  /// Part de la sueur qu'on cherche à compenser (plan des 2 %).
+  final double eauRatioPlan;
+
+  /// Perte de poids estimée, compte tenu de ce qui a été bu (% du poids).
+  final double eauPerteEstimeePct;
+
+  /// Heures « de référence » de sudation (pour calibrer le taux de base).
+  final double eauHeuresEquivalentes;
+
+  /// Glucides brûlés moins glucides mangés (g).
+  final double glucidesEcartG;
+
+  /// Vrai quand on peut manger maintenant (pas de descente, de forte
+  /// montée, ni de vitesse trop élevée).
+  final bool fenetreMangerOuverte;
 
   /// Montée en cours et puissance à tenir jusqu'au sommet.
   final Montee? monteeCourante;
@@ -130,7 +151,7 @@ class _SuiviMontee {
 /// Utilisation : appeler [tick] à chaque mesure, [mange] et [boit] à
 /// chaque appui sur les boutons, mettre à jour [meteo] toutes les 10 min.
 class Coach {
-  Coach(this.cfg, {this.parcours, Meteo? meteo})
+  Coach(this.cfg, {this.parcours, Meteo? meteo, this.dureePrevueS})
     : meteo =
           meteo ??
           Meteo(
@@ -138,7 +159,12 @@ class Coach {
             humiditePct: cfg.physique.humiditeDefautPct,
           ),
       manger = Ravitaillement(cfg.manger, cfg.cycliste.ftpW),
-      boire = Hydratation(cfg.boire, cfg.cycliste.ftpW),
+      boire = Hydratation(
+        cfg.boire,
+        cfg.cycliste.ftpW,
+        poidsKg: cfg.cycliste.poidsCyclisteKg,
+        dureePrevueS: dureePrevueS,
+      ),
       wbal = ReserveAnaerobie(
         wPrimeJ: cfg.wbal.wPrimeJ,
         modele: cfg.wbal.modele,
@@ -149,6 +175,11 @@ class Coach {
 
   final Config cfg;
   final Parcours? parcours;
+
+  /// Durée prévue de la sortie (s), si elle est connue (GPX ou durée
+  /// choisie). Sert au plan d'hydratation et à la règle « pas de glucides
+  /// sous 1 h 15 ». Null : on ne sait pas.
+  final double? dureePrevueS;
 
   /// Dernière météo connue.
   Meteo meteo;
@@ -166,6 +197,11 @@ class Coach {
   final Map<int, _SuiviMontee> _suivis = {};
 
   double? _tPrecedent;
+  double? _vitesseMs;
+  double _arretS = 0;
+  bool _pauseCompteeCetArret = false;
+  late double _prochainePauseG = cfg.manger.pauseRepasEcartG;
+  double _derniereChaleurT = double.negativeInfinity;
   double _t = 0;
   double _travailJ = 0;
   double? _distanceM;
@@ -203,6 +239,9 @@ class Coach {
 
     wbal.maj(p, cfg.wbal.fatigueAppliqueeAuWbal ? cpEffW : cpW, dt);
     _travailJ += p * dt;
+    _vitesseMs = e.vitesseMs ?? _vitesseMs;
+    _suivreArret(e.vitesseMs, dt);
+    manger.objectifActif = _glucidesActifs;
     manger.maj(p, dt);
     boire.maj(p, dt, meteo.temperatureC, meteo.humiditePct);
     _pComparaison.ajouter(p, dt);
@@ -214,6 +253,7 @@ class Coach {
     _candidatsMontee(candidats);
     _candidatsManger(candidats);
     _candidatsBoire(candidats);
+    _candidatsChaleur(candidats);
 
     final a = _arbitre.choisir(_t, candidats);
     if (a == null) return const [];
@@ -259,6 +299,11 @@ class Coach {
       eauObjectifL: boire.objectifL,
       eauBueL: boire.buL,
       eauRetardMl: boire.retardMl,
+      eauRatioPlan: boire.ratioPlan,
+      eauPerteEstimeePct: boire.perteEstimeePct,
+      eauHeuresEquivalentes: boire.heuresEquivalentes,
+      glucidesEcartG: manger.ecartBrulesMangesG,
+      fenetreMangerOuverte: _fenetreMangerOuverte,
       monteeCourante: _montee,
       puissanceCibleW: cible?.puissanceW,
       tempsRestantMonteeS: cible == null
@@ -482,12 +527,61 @@ class Coach {
     }
   }
 
+  /// Sortie assez longue pour avoir besoin de glucides : au moins
+  /// 1 h 15 quand la durée prévue est connue (sinon on ne sait pas).
+  bool get _sortieAssezLongue {
+    final prevue = dureePrevueS;
+    return prevue == null || prevue >= cfg.manger.dureeMinGlucidesS;
+  }
+
+  /// Les glucides comptent seulement après le premier apport (40 min),
+  /// sur une sortie assez longue.
+  bool get _glucidesActifs =>
+      _sortieAssezLongue && _t >= cfg.manger.premierePriseS;
+
+  /// Peut-on manger maintenant ? Jamais en descente, en forte montée
+  /// (un replat suffit) ni à plus de 30 km/h.
+  bool get _fenetreMangerOuverte {
+    final cm = cfg.manger;
+    final v = _vitesseMs;
+    if (v != null && v * 3.6 >= cm.vitesseMaxMangerKmh) return false;
+    final parc = parcours;
+    final d = _distanceM;
+    if (parc != null && d != null && parc.segments.isNotEmpty) {
+      final pente = 100 * parc.segmentA(d).pente;
+      if (pente < cm.penteMinMangerPct || pente > cm.penteMaxMangerPct) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Arrêt de plus de 10 min : la pause repas est comptée comme faite
+  /// (la suivante est proposée 200 g plus loin).
+  void _suivreArret(double? vitesseMs, double dt) {
+    if (vitesseMs == null) return;
+    if (vitesseMs < 1.0) {
+      _arretS += dt;
+      if (_arretS >= cfg.manger.arretPauseRepasS && !_pauseCompteeCetArret) {
+        _pauseCompteeCetArret = true;
+        _prochainePauseG =
+            manger.ecartBrulesMangesG + cfg.manger.pauseRepasEcartG;
+      }
+    } else {
+      _arretS = 0;
+      _pauseCompteeCetArret = false;
+    }
+  }
+
   void _candidatsManger(List<CandidatAlerte> c) {
     final cm = cfg.manger;
+    if (!_sortieAssezLongue) return;
+    final fenetre = _fenetreMangerOuverte;
     final pr = _prochaine;
     final eta = etaProchaineS;
     final pp = _pacingProchaine;
-    if (pr != null &&
+    if (fenetre &&
+        pr != null &&
         eta != null &&
         pp != null &&
         eta >= cm.anticipationDansMinS &&
@@ -522,8 +616,26 @@ class Coach {
       }
     }
 
-    final enMontee = _montee != null;
-    if (manger.alerteDue && !(enMontee && cm.reporterPendantMontee)) {
+    // « Mange avant le col » vaut même avant les 40 premières minutes :
+    // c'est le dernier moment où l'on peut manger tranquillement. Le
+    // reste attend le premier apport.
+    if (!fenetre || !_glucidesActifs) return;
+
+    if (manger.ecartBrulesMangesG >= _prochainePauseG) {
+      c.add(
+        CandidatAlerte(
+          type: TypeAlerte.manger,
+          sousPriorite: 2,
+          code: 'pause_repas',
+          message: Messages.pauseRepas(),
+          siEmise: () {
+            _prochainePauseG = manger.ecartBrulesMangesG + cm.pauseRepasEcartG;
+          },
+        ),
+      );
+    }
+
+    if (manger.alerteDue) {
       c.add(
         CandidatAlerte(
           type: TypeAlerte.manger,
@@ -536,6 +648,28 @@ class Coach {
         ),
       );
     }
+  }
+
+  /// Rappel de refroidissement quand il fait chaud (voir ConfigAlertes).
+  void _candidatsChaleur(List<CandidatAlerte> c) {
+    final ca = cfg.alertes;
+    if (ca.chaleurSeuilC <= 0) return;
+    final temperature = meteo.temperatureC;
+    if (temperature < ca.chaleurSeuilC) return;
+    if (_t - _derniereChaleurT < ca.chaleurRepeteS) return;
+    final tresChaud =
+        ca.chaleurTresChaudC > 0 && temperature >= ca.chaleurTresChaudC;
+    c.add(
+      CandidatAlerte(
+        type: TypeAlerte.chaleur,
+        code: tresChaud ? 'chaleur_forte' : 'chaleur',
+        message: Messages.chaleur(
+          temperatureC: temperature,
+          tresChaud: tresChaud,
+        ),
+        siEmise: () => _derniereChaleurT = _t,
+      ),
+    );
   }
 
   void _candidatsBoire(List<CandidatAlerte> c) {

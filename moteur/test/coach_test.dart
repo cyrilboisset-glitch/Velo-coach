@@ -97,9 +97,11 @@ void main() {
       }
     });
 
-    test('pas d’alerte « mange » normale pendant la montée', () {
+    test('pas d’alerte « mange » normale en pente de plus de 3 %', () {
       for (final x in code('manger')) {
-        expect(col.contient(trace.distance[x]!), isFalse);
+        final pente = 100 * _parcours.segmentA(trace.distance[x]!).pente;
+        expect(pente, lessThanOrEqualTo(3), reason: x.toString());
+        expect(pente, greaterThanOrEqualTo(-2), reason: x.toString());
       }
       expect(code('manger'), isNotEmpty);
     });
@@ -132,19 +134,22 @@ void main() {
   });
 
   group('Sans parcours', () {
-    test('2 h à 200 W : « bois » vers 12 min, « mange » à 20 min', () {
+    test('2 h à 200 W : « bois » à 25 min, « mange » après les 40 min', () {
       final coach = Coach(const Config());
       final alertes = <Alerte>[];
       for (var t = 0.0; t <= 7200; t += 1) {
         alertes.addAll(coach.tick(Echantillon(t: t, puissanceW: 200)));
       }
       // Sudation à 15 °C (météo par défaut) : 0,8 × 0,8 × 1,138
-      // = 0,73 L/h → 150 ml en 742 s.
+      // = 0,73 L/h. Plan des 2 % : 75 kg → 1,5 L tolérés sur 3 h prévues
+      // (2,2 L de sueur), donc au moins la moitié de la sueur à boire :
+      // 0,36 L/h → 150 ml en 1 480 s.
       expect(alertes.first.code, 'boire');
-      expect(alertes.first.t, closeTo(742, 5));
+      expect(alertes.first.t, closeTo(1480, 10));
       final mange = alertes.firstWhere((a) => a.code == 'manger');
-      // Objectif à 75 g/h → 25 g en 1200 s.
-      expect(mange.t, closeTo(1200, 5));
+      // L'objectif ne démarre qu'à 40 min (2 400 s), puis 75 g/h :
+      // 25 g en 1 200 s, donc à 3 600 s.
+      expect(mange.t, closeTo(3600, 5));
       expect(coach.etat.puissanceCibleW, isNull);
     });
 

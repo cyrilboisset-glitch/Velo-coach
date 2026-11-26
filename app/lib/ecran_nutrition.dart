@@ -49,6 +49,17 @@ class _EcranNutritionState extends State<EcranNutrition> {
   late final _boisson = TextEditingController(
     text: _dec(widget.reglages.boissonGParL),
   );
+  late final _duree = TextEditingController(
+    text: widget.reglages.dureePrevueH == 0
+        ? ''
+        : _dec(widget.reglages.dureePrevueH),
+  );
+  late final _eau = TextEditingController(
+    text: _dec(widget.reglages.eauEmporteeL),
+  );
+  late final _sodium = TextEditingController(
+    text: _dec(widget.reglages.sodiumMgParL),
+  );
   String? _erreur;
 
   double get _objectifGh => _nombre(_objectif.text) ?? 0;
@@ -91,6 +102,26 @@ class _EcranNutritionState extends State<EcranNutrition> {
       );
       return;
     }
+    final duree = _duree.text.trim().isEmpty ? 0.0 : _nombre(_duree.text);
+    final eau = _nombre(_eau.text);
+    final sodium = _nombre(_sodium.text);
+    if (duree == null || duree < 0 || duree > 24) {
+      setState(() => _erreur = 'Durée : un nombre d’heures (vide = auto).');
+      return;
+    }
+    if (eau == null || eau < 0 || eau > 10) {
+      setState(() => _erreur = 'Eau emportée : entre 0 et 10 litres.');
+      return;
+    }
+    if (sodium == null || sodium < 0 || sodium > 3000) {
+      setState(() => _erreur = 'Sodium : entre 0 et 3000 mg par litre.');
+      return;
+    }
+    await widget.reglages.enregistrerPlan(
+      dureePrevueH: duree,
+      eauEmporteeL: eau,
+      sodiumMgParL: sodium,
+    );
     await widget.reglages.enregistrerNutrition(
       produits: _produits,
       indexProduit: _choisi,
@@ -129,7 +160,7 @@ class _EcranNutritionState extends State<EcranNutrition> {
           Wrap(
             spacing: 8,
             children: [
-              for (final v in [20, 30, 45, 60])
+              for (final v in [20, 30, 45, 60, 90])
                 ActionChip(
                   label: Text('$v g/h'),
                   onPressed: () => setState(() => _objectif.text = '$v'),
@@ -226,6 +257,42 @@ class _EcranNutritionState extends State<EcranNutrition> {
             "0 si tu bois de l'eau. Boisson énergétique : l'étiquette donne "
             'souvent les glucides « pour 100 ml » : multiplie par 10. Ce que '
             "tu bois compte alors aussi dans tes glucides.",
+            style: TextStyle(color: _texte2, fontSize: 13),
+          ),
+          const SizedBox(height: 28),
+          const _Titre('4. Ma sortie type'),
+          TextField(
+            controller: _duree,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Durée prévue (vide = estimée d’après le GPX)',
+              suffixText: 'h',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _eau,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Eau emportée',
+              suffixText: 'L',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _sodium,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Sodium de ma boisson (0 si inconnu)',
+              suffixText: 'mg/L',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'La durée prévue règle le plan d’hydratation : on vise de ne pas '
+            'perdre plus de 2 % de ton poids en sueur. Repère de la '
+            'littérature pour le sodium : 300 à 700 mg par heure en effort '
+            'long ou par forte chaleur. À adapter à toi.',
             style: TextStyle(color: _texte2, fontSize: 13),
           ),
           if (_erreur != null) ...[

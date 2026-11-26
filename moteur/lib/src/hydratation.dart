@@ -8,12 +8,23 @@ import 'lissage.dart';
 /// Sudation (L/h) = taux de base × f(température) × f(humidité)
 ///                  × f(intensité). Voir ConfigBoire.
 class Hydratation {
-  Hydratation(this.cfg, this.ftpW)
-    : _intensite = MoyenneExpo(cfg.lissageIntensiteS),
+  Hydratation(this.cfg, this.ftpW, {this.poidsKg = 0, double? dureePrevueS})
+    : dureePrevueS = dureePrevueS ?? cfg.dureePrevueDefautS,
+      _intensite = MoyenneExpo(cfg.lissageIntensiteS),
       _prochainSeuilMl = cfg.seuilAlerteMl;
 
   final ConfigBoire cfg;
   final double ftpW;
+
+  /// Poids du cycliste (kg). Sert à la perte tolérée (2 % du poids) ;
+  /// 0 = pas de plan, tout remplacer (comportement d'origine).
+  final double poidsKg;
+
+  /// Durée prévue de la sortie (s) : répartit la perte tolérée.
+  double dureePrevueS;
+
+  /// Temps écoulé (s).
+  double tempsS = 0;
   final MoyenneExpo _intensite;
   double _prochainSeuilMl;
 
@@ -35,6 +46,31 @@ class Hydratation {
 
   /// Retard sur l'objectif (ml). Négatif = en avance.
   double get retardMl => (objectifL - buL) * 1000;
+
+  /// Part de la sueur à compenser en buvant, d'après le plan
+  /// d'hydratation : on boit assez pour que la perte de poids prévue sur
+  /// toute la sortie reste sous [ConfigBoire.perteMaxPctPoids].
+  ///
+  /// Sueur prévue = déjà perdue + taux actuel × temps restant. Part à
+  /// boire = (sueur prévue − perte tolérée) / sueur prévue, bornée.
+  double get ratioPlan {
+    if (cfg.perteMaxPctPoids <= 0 || poidsKg <= 0) return cfg.ratioRemplacement;
+    final restantH = math.max(0.0, dureePrevueS - tempsS) / 3600;
+    final prevue = perteL + sudationLh * restantH;
+    if (prevue <= 0) return cfg.ratioRemplacementMin;
+    final toleree = cfg.perteMaxPctPoids / 100 * poidsKg;
+    return ((prevue - toleree) / prevue).clamp(
+      cfg.ratioRemplacementMin,
+      cfg.ratioRemplacement,
+    );
+  }
+
+  /// Perte de poids estimée si on ne boit pas (% du poids).
+  double get perteSansBoirePct => poidsKg <= 0 ? 0 : 100 * perteL / poidsKg;
+
+  /// Perte de poids estimée compte tenu de ce qui a été bu (% du poids).
+  double get perteEstimeePct =>
+      poidsKg <= 0 ? 0 : 100 * math.max(0.0, perteL - buL) / poidsKg;
 
   double facteurTemperature(double temperatureC) =>
       (1 + cfg.coefTemperatureParDegre * (temperatureC - cfg.temperatureRefC))
@@ -80,10 +116,10 @@ class Hydratation {
         facteurIntensite(_intensite.valeur());
     sudationLh = cfg.tauxBaseLh * f;
     final h = dt / 3600;
+    tempsS += dt;
     perteL += sudationLh * h;
     heuresEquivalentes += f * h;
-    objectifL +=
-        math.min(sudationLh * cfg.ratioRemplacement, cfg.plafondBoireLh) * h;
+    objectifL += math.min(sudationLh * ratioPlan, cfg.plafondBoireLh) * h;
   }
 
   /// Vrai quand le retard a franchi le prochain seuil d'alerte.
@@ -125,6 +161,12 @@ class ResultatCalibration {
 }
 
 /// Mode calibration : poids avant et après la sortie + ce que tu as bu.
+///
+/// Méthode de la conférence « Nutrition du sport – triathlon » : se peser
+/// juste avant et juste après, en sous-vêtements, avec une gourde que l'on
+/// boit entièrement ; pertes (L) = poids fin − poids début + eau bue ;
+/// pertes (L/h) = 60 × pertes (L) / durée (min). Refaire plusieurs sorties
+/// par températures différentes.
 ///
 /// Sueur perdue = poids perdu + boisson − urine (1 kg ≈ 1 L).
 /// Si [heuresEquivalentes] (donné par [Hydratation] pendant la sortie)

@@ -115,6 +115,27 @@ class Reglages extends ChangeNotifier {
   /// Glucides de la boisson, pour 1 L (0 = eau plate).
   double get boissonGParL => _prefs.getDouble('boissonGParL') ?? 0;
 
+  /// Durée prévue de la sortie en heures (0 = estimée d'après le GPX, ou
+  /// 3 h sans GPX). Sert au plan d'hydratation et au plan de sortie.
+  double get dureePrevueH => _prefs.getDouble('dureePrevueH') ?? 0;
+
+  /// Eau emportée (L) : 2 bidons de 1 L par défaut.
+  double get eauEmporteeL => _prefs.getDouble('eauEmporteeL') ?? 2;
+
+  /// Sodium de la boisson (mg/L), 0 si inconnu.
+  double get sodiumMgParL => _prefs.getDouble('sodiumMgParL') ?? 0;
+
+  Future<void> enregistrerPlan({
+    required double dureePrevueH,
+    required double eauEmporteeL,
+    required double sodiumMgParL,
+  }) async {
+    await _prefs.setDouble('dureePrevueH', dureePrevueH);
+    await _prefs.setDouble('eauEmporteeL', eauEmporteeL);
+    await _prefs.setDouble('sodiumMgParL', sodiumMgParL);
+    notifyListeners();
+  }
+
   Future<void> enregistrerNutrition({
     required List<ProduitNutrition> produits,
     required int indexProduit,

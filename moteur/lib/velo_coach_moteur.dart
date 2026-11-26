@@ -17,6 +17,7 @@ export 'src/lissage.dart';
 export 'src/messages.dart';
 export 'src/pacing.dart';
 export 'src/parcours.dart';
+export 'src/plan.dart';
 export 'src/physique.dart';
 export 'src/rapport.dart';
 export 'src/ravitaillement.dart';

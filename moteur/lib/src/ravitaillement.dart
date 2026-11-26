@@ -38,6 +38,15 @@ class Ravitaillement {
   /// Retard sur l'objectif (g). Négatif = en avance.
   double get retardG => objectifG - mangesG;
 
+  /// Faux tant qu'on n'a pas à manger (début de sortie, sortie trop
+  /// courte) : l'objectif n'avance pas, donc pas de rattrapage ensuite.
+  /// Les glucides brûlés, eux, continuent d'être comptés.
+  bool objectifActif = true;
+
+  /// Écart « glucides brûlés moins glucides mangés » (g) : ce qui manque
+  /// dans les réserves. Sert à conseiller une pause repas.
+  double get ecartBrulesMangesG => brulesG - mangesG;
+
   /// Débit de glucides brûlés, moyenne des dernières minutes (g/h).
   double get debitBrulageGh => _debit.valeur();
 
@@ -63,7 +72,7 @@ class Ravitaillement {
     _debit.ajouter(gParS * 3600, dt);
     final debit = _debit.valeur();
     final ratio = debit > cfg.toleranceMaxGh ? cfg.toleranceMaxGh / debit : 1.0;
-    objectifG += gParS * dt * ratio;
+    if (objectifActif) objectifG += gParS * dt * ratio;
   }
 
   /// Vrai quand le retard a franchi le prochain seuil d'alerte.

@@ -29,10 +29,12 @@ void main() {
       expect(h.facteurTemperature(-10), 0.5);
       expect(h.facteurTemperature(60), 2.0);
     });
-    test('humidité : +0,5 % par point, bornée', () {
-      expect(h.facteurHumidite(90), closeTo(1.2, 1e-12));
-      expect(h.facteurHumidite(100), closeTo(1.25, 1e-12));
-      expect(h.facteurHumidite(0), 0.8);
+    test('humidité : −0,3 % par point au-dessus de 50 %, bornée', () {
+      expect(h.facteurHumidite(90), closeTo(0.88, 1e-12));
+      expect(h.facteurHumidite(100), closeTo(0.85, 1e-12));
+      expect(h.facteurHumidite(20), closeTo(1.09, 1e-12));
+      expect(h.facteurHumidite(-200), 1.2);
+      expect(h.facteurHumidite(400), 0.8);
     });
     test('intensité : 0,4 à l’arrêt, 1,32 à FTP', () {
       expect(h.facteurIntensite(0), closeTo(0.4, 1e-12));

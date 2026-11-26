@@ -637,6 +637,11 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
           ),
         ),
 
+        // ---- Plan de sortie
+        const SizedBox(height: 26),
+        const Rubrique('Plan de sortie', icone: Icons.checklist_rounded),
+        _CartePlan(sortie: widget.sortie, reglages: r),
+
         // ---- Nutrition
         const SizedBox(height: 26),
         const Rubrique('Nutrition', icone: Icons.restaurant_rounded),
@@ -1029,12 +1034,14 @@ Color _couleurAlerte(TypeAlerte t) => switch (t) {
   TypeAlerte.montee => Couleurs.or,
   TypeAlerte.manger => Couleurs.cuivre,
   TypeAlerte.boire => Couleurs.bleu,
+  TypeAlerte.chaleur => Colors.deepOrangeAccent,
 };
 
 IconData _iconeAlerte(TypeAlerte t) => switch (t) {
   TypeAlerte.montee => Icons.terrain_rounded,
   TypeAlerte.manger => Icons.cookie_rounded,
   TypeAlerte.boire => Icons.water_drop_rounded,
+  TypeAlerte.chaleur => Icons.wb_sunny_rounded,
 };
 
 class _BoutonRond extends StatelessWidget {
@@ -1372,6 +1379,54 @@ class _Bilan extends StatelessWidget {
           style: TextStyle(color: Couleurs.texte3, fontSize: 12.5),
         ),
       ],
+    );
+  }
+}
+
+/// Ce qu'il faut emporter et boire, d'après la durée prévue et la météo.
+class _CartePlan extends StatelessWidget {
+  const _CartePlan({required this.sortie, required this.reglages});
+  final Sortie sortie;
+  final Reglages reglages;
+
+  @override
+  Widget build(BuildContext context) {
+    final pl = sortie.plan();
+    final h = pl.dureeS / 3600;
+    String d1(double v) => v.toStringAsFixed(1).replaceAll('.', ',');
+    final manque = pl.eauManquanteL(reglages.eauEmporteeL);
+    final lignes = <String>[
+      'Durée prévue : ${d1(h)} h'
+          '${reglages.dureePrevueH > 0 ? '' : ' (estimée)'}',
+      pl.glucidesNecessaires
+          ? 'Glucides : ${pl.portions} portions à emporter '
+                '(${pl.glucidesTotalG.round()} g)'
+          : 'Moins de 1 h 15 : pas de glucides, de l’eau seulement',
+      'Eau à boire en route : ${d1(pl.eauABoireL)} L '
+          '(sueur estimée ${d1(pl.eauSueurL)} L)',
+      'Avant le départ : ${pl.eauAvantDepartMlMin.round()} à '
+          '${pl.eauAvantDepartMlMax.round()} ml d’eau dans les 4 h',
+      if (pl.sodiumMgH != null)
+        'Sodium de ta boisson : ${pl.sodiumMgH!.round()} mg/h',
+      if (manque > 0) 'Il te manque ${d1(manque)} L : prévois un point d’eau',
+    ];
+    return Carte(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final l in lignes)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(l),
+            ),
+          const SizedBox(height: 6),
+          const Text(
+            'Repères de la littérature, à ajuster. Météo de référence '
+            '15 °C : la vraie météo est lue pendant la sortie.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 }

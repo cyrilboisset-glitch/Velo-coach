@@ -88,6 +88,32 @@ class Sortie extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Météo prise comme référence avant le départ (15 °C, 50 % par défaut).
+  Meteo meteoPlan = const Meteo(temperatureC: 15, humiditePct: 50);
+
+  /// Durée prévue (s) : choix de l'utilisateur, sinon estimation du GPX
+  /// (+10 % pour les arrêts, [CHOIX]), sinon 3 h.
+  double dureePrevueS(Config cfg) {
+    if (reglages.dureePrevueH > 0) return reglages.dureePrevueH * 3600;
+    final p = parcours;
+    if (p != null) {
+      return 1.1 * estimerDureeParcoursS(p, cfg, meteoPlan);
+    }
+    return 3 * 3600;
+  }
+
+  /// Plan avant départ, pour l'accueil.
+  PlanSortie plan() {
+    final cfg = reglages.config();
+    return planifierSortie(
+      cfg: cfg,
+      dureeS: dureePrevueS(cfg),
+      meteo: meteoPlan,
+      portionG: reglages.produitChoisi.glucidesG,
+      sodiumMgParL: reglages.sodiumMgParL,
+    );
+  }
+
   // ---- Démarrer / arrêter -------------------------------------------------
 
   Future<void> demarrer() async {
@@ -100,7 +126,8 @@ class Sortie extends ChangeNotifier {
       await _verifierAutorisations();
       await annonces.preparer(voix: reglages.voix);
       final cfg = reglages.config();
-      coach = Coach(cfg, parcours: parcours);
+      final dureeS = dureePrevueS(cfg);
+      coach = Coach(cfg, parcours: parcours, dureePrevueS: dureeS);
       _calage = parcours == null ? null : Calage(parcours!);
       debut = DateTime.now();
       distanceM = 0;

@@ -1,8 +1,9 @@
 import 'config.dart';
 import 'messages.dart';
 
-/// Types d'alerte, rangés par priorité [CDC] : montée > manger > boire.
-enum TypeAlerte { montee, manger, boire }
+/// Types d'alerte, rangés par priorité [CDC] : montée > manger > boire,
+/// puis la chaleur (rappel de refroidissement, le moins pressé).
+enum TypeAlerte { montee, manger, boire, chaleur }
 
 /// Une alerte envoyée au cycliste.
 class Alerte {
