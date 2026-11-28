@@ -23,6 +23,7 @@ import 'composants.dart';
 import 'config_appli.dart';
 import 'diagnostic.dart';
 import 'ecran_nutrition.dart';
+import 'ecran_radar.dart';
 import 'reglages.dart';
 import 'sortie.dart';
 import 'suivi.dart';
@@ -674,6 +675,22 @@ class _EcranPrincipalState extends State<EcranPrincipal> {
                 ),
               ),
               const Icon(Icons.chevron_right_rounded, color: Couleurs.texte3),
+            ],
+          ),
+        ),
+
+        // ---- Radar
+        const SizedBox(height: 26),
+        const Rubrique('Radar arrière', icone: Icons.radar_rounded),
+        Carte(
+          onTap: () => _ouvrir(const EcranRadar()),
+          child: const Row(
+            children: [
+              Icon(Icons.radar_rounded, color: Couleurs.or),
+              SizedBox(width: 14),
+              Expanded(
+                child: Text('Test radar (Magene L508) : essai en Bluetooth'),
+              ),
             ],
           ),
         ),

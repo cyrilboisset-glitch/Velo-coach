@@ -167,3 +167,11 @@ sur l'accueil, section « Ma sortie type » dans Ma nutrition. Le PDF de la
 conférence ne doit jamais être mis dans le dépôt. Voir HYPOTHESES.md
 (21 à 27). Reste : pesée après sortie, ration de récupération,
 glucose/fructose.
+
+## Version 0.6.0 : test du radar arrière
+
+`app/lib/ecran_radar.dart` : écran « Test radar » (accueil, rubrique Radar
+arrière). Il ne fait pas d'alerte : il sert à savoir si le Magene L508 de
+Cyril parle le format Garmin (voir HYPOTHESES.md n° 29). Prochaine étape
+selon le rapport copié par Cyril : lecture du radar dans le moteur +
+alerte vocale « Voiture derrière, X m ».
